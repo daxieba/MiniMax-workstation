@@ -25,12 +25,13 @@
 
 | 项 | 状态 | 备注 |
 |---|---|---|
-| `git init` + 首次 commit | ⏳ | 待炫总说"git init"再执行；不可逆 |
-| `git tag v0.1.0` | ⏳ | 待炫总确认 commit 后再 tag |
+| `git init` + 首次 commit | ✅ | `2faf700` Mavis <mavis@MiniMax.local> "release: v0.1.0"（203 files / 47724 insertions） |
+| `git tag v0.1.0` | ✅ | annotated tag，message 在 `git tag -n3 v0.1.0` 可查 |
 | `pnpm dist:nsis` 真打 | ⏳ | 下载 ~80MB electron + NSIS 工具链，需稳定网络；建议在干净环境跑 |
 | 代码签名 | ⏳ | 需炫总提供证书（`.pfx`） |
 | macOS / Linux 真打 | ⏳ | 需对应平台机器；macOS 需 codesign + notarize |
 | 自动更新源配置 | ⏳ | 配 `MINIMAX_UPDATE_FEED_URL` env + electron-builder `publish` 字段 |
+| remote 推送 | ⏳ | 炫总后续如需推到 GitHub / Gitea，告诉我 remote URL，我配上去 |
 
 ## 📋 v0.1.1 计划（社区可参与）
 
@@ -61,3 +62,16 @@
 **发布日**：2026-08-10
 **维护者**：Mavis（Mavis 编排）+ 炫总（产品决策）
 **反馈渠道**：见 RELEASE_NOTES.md
+
+---
+
+## 收尾记录
+
+| 时间 | 动作 | 操作者 |
+|---|---|---|
+| 2026-08-10 12:14 | T5-1 验收通过 | Mavis |
+| 2026-08-10 13:27 | T5-2 验收通过 | Mavis |
+| 2026-08-10 15:26 | T5-3 派单 | 炫总 |
+| 2026-08-10 16:28 | T5-3 验收通过 | Mavis |
+| 2026-08-10 15:55 | 聚合发布物（README / CHANGELOG / RELEASE_NOTES / RELEASE_CHECKLIST / VERSION） | Mavis |
+| 2026-08-10 15:55 | git 收尾（init / .gitignore / commit `2faf700` / tag `v0.1.0`） | 炫总决策 + Mavis 执行 |
