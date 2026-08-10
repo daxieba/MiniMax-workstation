@@ -5,6 +5,21 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
+## [0.1.0.3] - 2026-08-10
+
+### Fixed
+
+- **`MiniMaxCode 工作台.exe` 启动报 "数据库初始化失败"**
+  - 错误：`Failed to run db migrations from ...\dist\win-unpacked\resources\app.asar\db\migrations: Can't find meta/_journal.json file`
+  - 根因：v0.1.0 / v0.1.0.1 / v0.1.0.2 的 `electron-builder.yml` `files` 字段**没**包括 `db/migrations/`，asar 包里**没**这部分代码，T1-3 / T2-1 当时只 dev 模式测过没真打 dist:dir 暴露
+  - 修复：yml 加 `db/migrations/**` 到 `files`（include in asar）+ `asarUnpack: db/migrations/**`（物理 unpack 副本，因为 Drizzle migrator 用 `fs.readdirSync`，asar 虚拟 fs 支持有限）
+- 验证：`dist\win-unpacked\resources\app.asar.unpacked\db\migrations\` 包含 6 个 SQL + `meta/_journal.json` + 5 个 snapshot
+
+### Verified
+
+- ✅ `pnpm dist:dir` 成功生成 `dist\win-unpacked\MiniMaxCode 工作台.exe` (180 MB, LastWrite 20:42:24)
+- ✅ `app.asar.unpacked\db\migrations\` 物理副本完整
+
 ## [0.1.0.2] - 2026-08-10
 
 ### Fixed
