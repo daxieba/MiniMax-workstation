@@ -10,9 +10,17 @@ files:
   - package.json
   - "!**/*.md"
   - "!**/*.map"
+  # db/migrations 必须打进 asar 并 unpack 物理副本——
+  # Drizzle migrator 走 fs.readdirSync，asar 虚拟 fs API 支持有限，
+  # 且 better-sqlite3 native 也需要本地文件句柄。
+  - db/migrations/**
 
 asar: true
 compression: normal
+
+# db/migrations 物理副本（drizzle migrator + asar API 限制）
+asarUnpack:
+  - db/migrations/**
 
 win:
   target:
