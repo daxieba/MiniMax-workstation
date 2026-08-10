@@ -1,0 +1,17 @@
+# pnpm 11+ 配置
+# 详见 https://pnpm.io/settings
+#
+# 当前不使用 onlyBuiltDependencies / dangerouslyAllowAllBuilds，原因：
+#   - pnpm 11 默认禁止 install scripts（安全机制）
+#   - electron / better-sqlite3 / esbuild 各自需要特殊的 native binary 下载流程
+#     （分别由 scripts/setup.cjs 单独处理）
+#   - @napi-rs/keyring（T3-1 替代 keytar）随 pnpm install 一起下载 NAPI binding
+#
+# 解决路径：完整安装仍用 `pnpm install --ignore-scripts` 跳过所有
+# postinstall，然后跑 `pnpm run setup` 单独装 electron / better-sqlite3 /
+# esbuild 的 native binary。@napi-rs/keyring 不需要额外步骤。
+#
+# 后续若要恢复白名单模式（pnpm 11 支持 onlyBuiltDependencies 显式列名），需要：
+#   1. 验证 @napi-rs/keyring 全部平台 prebuilt 都齐
+#   2. 把 onlyBuiltDependencies 加上 '@napi-rs/keyring', 'esbuild', 'electron',
+#      'better-sqlite3'

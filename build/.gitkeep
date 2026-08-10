@@ -1,0 +1,8 @@
+# T5-3：本目录为 electron-builder 的 `directories.buildResources`。
+# 当前**不**提供应用图标（icon.ico / icon.png），遵循本卡约束：
+#   - 不出图、不引资源文件
+#   - electron-builder.yml 中**不**配置 `win.icon` / `mac.icon`
+#   - electron-builder 会用默认占位图打 .exe（运行时无功能影响）
+#
+# 后续卡（如真实发布卡）补图时把 `icon.ico` (256x256, Windows) 和
+# `icon.png` (512x512, macOS) 放在本目录，并更新 electron-builder.yml。

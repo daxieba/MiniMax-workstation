@@ -1,0 +1,56 @@
+appId: com.minimax.workstation
+productName: MiniMaxCode 工作台
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - "!**/*.md"
+  - "!**/*.map"
+
+asar: true
+compression: normal
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+# 注意：本卡**不**配置 `win.icon` —— 见 build/.gitkeep 说明。
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: MiniMaxCode 工作台
+  installerLanguages:
+    - zh_CN
+    - en_US
+  displayLanguageSelector: false
+  # 安全约束：卸载时**不**删除用户数据 / db / 备份（用户可能误操作卸载）
+  deleteAppDataOnUninstall: false
+
+# 自动更新骨架：本卡只做配置层，**不**接远端更新服务器。
+# 真正的 publish / feed 由后续发布卡配置（见 docs/build-and-distribute.md）。
+publish: null
+
+artifactName: ${productName}-${version}-${arch}.${ext}
