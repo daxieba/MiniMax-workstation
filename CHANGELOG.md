@@ -5,6 +5,26 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
+## [0.1.0.2] - 2026-08-10
+
+### Fixed
+
+- **`MiniMaxCode 工作台.exe` 启动崩溃**
+  - 错误：`SyntaxError: Named export 'autoUpdater' not found. The requested module 'electron-updater' is a CommonJS module`
+  - 根因：T5-3 worker 写的 `import { autoUpdater } from "electron-updater"`（ESM named import）对 CommonJS module 失败；T5-3 当时**没**真跑 `pnpm dist` 没暴露，v0.1.0.1 跑通后**才**暴露
+  - 修复：改用 default import + 解构（`import electronUpdater from 'electron-updater'; electronUpdater.autoUpdater.xxx`）
+- **`.gitignore` 误伤 `electron/` 源码目录**
+  - 根因：v0.1.0 写的 `Electron/`（意图忽略 Electron 运行时残留）在 Windows 大小写不敏感下匹配整个 `electron/` 源码目录
+  - 修复：删掉该行
+- **新增** `scripts/cleanup-build-artifacts.cjs` — 清理 v0.1.0 → v0.1.0.1 → v0.1.0.2 期间积累的失败 build 残留（~1.4 GB 已释放；剩余 ~100MB 被 Windows Defender 锁住 .asar，等几分钟自动释放）
+
+### Verified
+
+- ✅ `pnpm dist:dir` 成功生成 `dist\win-unpacked\MiniMaxCode 工作台.exe` (180 MB, LastWrite 20:26:56)
+- ✅ `MiniMaxCode 工作台.exe` 启动不再报 autoUpdater 错误
+- ✅ 桌面快捷方式路径不变（指向 `dist\win-unpacked\MiniMaxCode 工作台.exe`，自动用新版本）
+- ✅ cleanup 脚本 idempotent，下次跑仍能继续清理
+
 ## [0.1.0.1] - 2026-08-10
 
 ### Fixed
