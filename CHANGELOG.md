@@ -5,6 +5,25 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
+## [0.1.0.1] - 2026-08-10
+
+### Fixed
+
+- **`pnpm dist:dir` 在 Windows 普通用户下能跑通**
+  - electron-builder 25.1.8 hardcode 了 7-Zip 不支持的 `-snld` CLI 参数；
+    Windows 普通用户没 symlink 权限触发 darwin/linux 符号链接创建失败
+  - 新增 `7za-wrapper/Wrapper.cs`（C# 编译，5.6 KB）— 把 `-snld` 转成 7-Zip 21.07/26.02 都支持的 `-xr!darwin -xr!linux`
+  - 新增 `scripts/install-wrapper.cjs` — 自动化编译 wrapper 到 `node_modules\.pnpm\7zip-bin@5.2.0\node_modules\7zip-bin\win\x64\7za.exe`，备份原版到 `7za-real.exe` + `7za.exe.bak21`，幂等可重跑
+  - `package.json` 把 `7zip-bin ^5.2.0` 提升到 devDependencies（之前是 transitive）
+- **新装仓库后**：先 `pnpm install` → 再 `node scripts/install-wrapper.cjs` → 然后 `pnpm dist:dir` / `pnpm dist:nsis` 都不需要管理员
+
+### Verified
+
+- ✅ `pnpm dist:dir` 成功生成 `dist\win-unpacked\MiniMaxCode 工作台.exe` (180 MB)
+- ✅ 整个 `dist\win-unpacked\` 目录 ~227 MB
+- ✅ 用 huaweicloud 镜像（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`）下 electron 33.4.11 (115 MB) + winCodeSign 2.6.0 (5.6 MB) 速度可接受
+- ⚠️ `pnpm dist:nsis` 仍需在干净环境验证（要下 NSIS 工具链 ~30MB）
+
 ## [0.1.0] - 2026-08-10
 
 首个功能完整的 v0.1 发布。覆盖 6 大模块（收集箱 / 项目与任务 / AI 工作区 / 知识库 / 每日复盘 / 设置与备份），17 张任务卡全部通过验收门禁。

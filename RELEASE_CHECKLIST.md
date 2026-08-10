@@ -28,6 +28,7 @@
 | `git init` + 首次 commit | ✅ | `2faf700` Mavis <mavis@MiniMax.local> "release: v0.1.0"（203 files / 47724 insertions） |
 | `git tag v0.1.0` | ✅ | annotated tag，message 在 `git tag -n3 v0.1.0` 可查 |
 | `pnpm dist:nsis` 真打 | ⏳ | 下载 ~80MB electron + NSIS 工具链，需稳定网络；建议在干净环境跑 |
+| `pnpm dist:dir` 真打 | ✅ | **v0.1.0.1** `d779fd8` `7za-wrapper` C# wrapper 解 7-Zip 21.07/26.02 不支持 `-snld` 的问题；产物 `dist\win-unpacked\MiniMaxCode 工作台.exe` (180MB) |
 | 代码签名 | ⏳ | 需炫总提供证书（`.pfx`） |
 | macOS / Linux 真打 | ⏳ | 需对应平台机器；macOS 需 codesign + notarize |
 | 自动更新源配置 | ⏳ | 配 `MINIMAX_UPDATE_FEED_URL` env + electron-builder `publish` 字段 |
@@ -41,6 +42,15 @@
 - [ ] Settings footer 去重（删 footer 版本号；保留 Section 6 即可）
 - [ ] 实际跑 `pnpm dist:nsis` 验证产物（在 Windows 10/11 干净环境）
 - [ ] README 截图补全（6 大模块 + 设置页）
+
+## 📋 v0.1.0.1 已发布（2026-08-10）
+
+- ✅ `pnpm dist:dir` 在 Windows 普通用户下跑通（fix commit `d779fd8`）
+  - 7za-wrapper/Wrapper.cs — C# wrapper 转 `-snld` → `-xr!darwin -xr!linux`
+  - scripts/install-wrapper.cjs — 自动化编译 wrapper（idempotent）
+  - package.json — 7zip-bin 提到 devDependencies
+- ✅ 产物：`D:\AI-project\MiniMax-project\个人工作台\dist\win-unpacked\MiniMaxCode 工作台.exe` (180 MB)
+- 7-Zip 行为变更记录：7-Zip 25.01 起对 tar/zip 加了 symlink 安全检查，但**没**对 7z 格式加；所以 7-Zip 21.07 / 26.02 在 Windows 普通用户解压 winCodeSign 仍会失败。wrapper 永久绕开。
 
 ## 📋 v0.2 计划（功能扩展）
 
