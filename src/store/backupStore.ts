@@ -5,13 +5,13 @@
  *   - 缓存备份文件列表（`backups`） + 路径信息（`paths`） + 最近一次动作
  *   - 暴露 7 个 action：loadBackups / backupNow / exportData / importData /
  *     restoreBackup / deleteBackup / resetData
- *   - 调 `window.api.appEx.*`（getPaths / listBackups / backupNow / exportData /
+ *   - 调 `window.api.app.*`（getPaths / listBackups / backupNow / exportData /
  *     restoreBackup / importData / deleteBackup / resetData）
  *   - 成功 → `toast.success`；失败 → `toast.error`
  *   - restore/reset 成功后 `toast.info`（或 success）提示"请重启应用"
  *
  * **数据流**：
- *   UI → store action → window.api.appEx → 主进程 handler → 回到 store
+ *   UI → store action → window.api.app → 主进程 handler → 回到 store
  *
  * **不做**：
  *   - 不直接 import `db` / `better-sqlite3` / `drizzle`（PROJECT_IDENTITY.md §2.2）
@@ -38,7 +38,7 @@ import type {
 
 import { toast } from './toastStore';
 
-/** `window.api.appEx` 形状。 */
+/** `window.api.app` 形状（备份 / 导出 / 恢复相关）。 */
 interface ApiBackupShape {
   getPaths(): Promise<
     | { ok: true; data: GetPathsResponseParsed }
@@ -76,15 +76,15 @@ interface ApiBackupShape {
 
 interface WindowWithApi {
   api?: {
-    appEx?: ApiBackupShape;
+    app?: ApiBackupShape;
   };
 }
 
-/** 安全取 window.api.appEx。 */
+/** 安全取 window.api.app。 */
 function getBackupApi(): ApiBackupShape | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as WindowWithApi;
-  return w.api?.appEx ?? null;
+  return w.api?.app ?? null;
 }
 
 /** 把 IPC `{ok, error}` 形态的失败转成抛错 + toast 提示。 */

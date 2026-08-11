@@ -42,9 +42,17 @@ vi.mock('electron', () => ({
   },
 }));
 
-vi.mock('electron-updater', () => ({
-  autoUpdater: mocks.autoUpdater,
-}));
+vi.mock('electron-updater', () => {
+  // 必须同时提供 default + named：main bundle 用 `import electronUpdater from 'electron-updater'`
+  // 然后 `electronUpdater.autoUpdater.xxx`，等价于解构整个 module.exports。
+  // vitest 的 Vite SSR CJS interop 在 default import 存在时优先取 default，
+  // 所以 default = module.exports 自身（与 named 一致），main 访问 `electronUpdater.autoUpdater` 才对。
+  const exports = { autoUpdater: mocks.autoUpdater };
+  return {
+    ...exports,
+    default: exports,
+  };
+});
 
 import {
   UPDATE_FEED_ENV,

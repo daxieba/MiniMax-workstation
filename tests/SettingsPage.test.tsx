@@ -31,13 +31,9 @@ interface MockApi {
     getVersion: ReturnType<typeof vi.fn>;
     getThemeSource: ReturnType<typeof vi.fn>;
     setThemeSource: ReturnType<typeof vi.fn>;
-  };
-  settings: {
     getSettings: ReturnType<typeof vi.fn>;
     setSettings: ReturnType<typeof vi.fn>;
     maybeAutoBackup: ReturnType<typeof vi.fn>;
-  };
-  appEx: {
     getPaths: ReturnType<typeof vi.fn>;
     listBackups: ReturnType<typeof vi.fn>;
     backupNow: ReturnType<typeof vi.fn>;
@@ -67,8 +63,6 @@ function makeMockApi(): MockApi {
         ok: true,
         data: { source: 'light', resolved: 'light' },
       }),
-    },
-    settings: {
       getSettings: vi.fn().mockResolvedValue({
         ok: true,
         data: { autoBackupIntervalMin: 30, lastAutoBackupAt: null, lastRestoreAt: null },
@@ -78,8 +72,6 @@ function makeMockApi(): MockApi {
         data: { autoBackupIntervalMin: 60, lastAutoBackupAt: null, lastRestoreAt: null },
       }),
       maybeAutoBackup: vi.fn().mockResolvedValue({ ok: true, data: { triggered: false } }),
-    },
-    appEx: {
       getPaths: vi.fn().mockResolvedValue({
         ok: true,
         data: {
@@ -254,7 +246,7 @@ describe('SettingsPage — backup controls', () => {
     const select = (await screen.findByTestId('settings-interval')) as HTMLSelectElement;
     fireEvent.change(select, { target: { value: '60' } });
     await waitFor(() => {
-      expect(mockApi.settings.setSettings).toHaveBeenCalledWith({ autoBackupIntervalMin: 60 });
+      expect(mockApi.app.setSettings).toHaveBeenCalledWith({ autoBackupIntervalMin: 60 });
     });
   });
 });
@@ -265,7 +257,7 @@ describe('SettingsPage — backup controls', () => {
 
 describe('SettingsPage — backup file list', () => {
   it('shows empty state when no backups', async () => {
-    mockApi.appEx.listBackups.mockResolvedValue({ ok: true, data: [] });
+    mockApi.app.listBackups.mockResolvedValue({ ok: true, data: [] });
     renderSettings();
     expect(await screen.findByTestId('settings-backup-empty')).toBeInTheDocument();
   });
@@ -334,7 +326,7 @@ describe('SettingsPage — dangerous confirm dialog', () => {
     fireEvent.change(input, { target: { value: 'RESET' } });
     fireEvent.click(screen.getByTestId('settings-confirm-dialog-submit'));
     await waitFor(() => {
-      expect(mockApi.appEx.resetData).toHaveBeenCalledWith({ confirm: 'RESET' });
+      expect(mockApi.app.resetData).toHaveBeenCalledWith({ confirm: 'RESET' });
     });
   });
 });
@@ -351,7 +343,7 @@ describe('SettingsPage — export flow', () => {
       expect(mockApi.dialog.showSaveDialog).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(mockApi.appEx.exportData).toHaveBeenCalledWith({
+      expect(mockApi.app.exportData).toHaveBeenCalledWith({
         destPath: 'C:\\Users\\testuser\\Desktop\\export.mmws.json',
       });
     });
@@ -371,7 +363,7 @@ describe('SettingsPage — import flow', () => {
     fireEvent.change(input, { target: { value: 'RESTORE' } });
     fireEvent.click(screen.getByTestId('settings-confirm-dialog-submit'));
     await waitFor(() => {
-      expect(mockApi.appEx.importData).toHaveBeenCalledWith({
+      expect(mockApi.app.importData).toHaveBeenCalledWith({
         path: 'C:\\Users\\testuser\\Desktop\\import.mmws.json',
         confirm: 'RESTORE',
       });
@@ -394,7 +386,7 @@ describe('SettingsPage — backup row actions', () => {
     );
     fireEvent.click(deleteBtn);
     await waitFor(() => {
-      expect(mockApi.appEx.deleteBackup).toHaveBeenCalled();
+      expect(mockApi.app.deleteBackup).toHaveBeenCalled();
     });
   });
 
@@ -423,7 +415,7 @@ describe('SettingsPage — backup now button', () => {
     renderSettings();
     fireEvent.click(await screen.findByTestId('settings-backup-now'));
     await waitFor(() => {
-      expect(mockApi.appEx.backupNow).toHaveBeenCalled();
+      expect(mockApi.app.backupNow).toHaveBeenCalled();
     });
   });
 });

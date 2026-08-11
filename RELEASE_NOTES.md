@@ -1,7 +1,90 @@
-# Release Notes — v0.1.0
+# Release Notes — v0.1.0.4
 
-**发布日期**：2026-08-10
-**代号**：Minimax（"个人工作台 OS" 第一个完整版本）
+**发布日期**：2026-08-11
+**代号**："终于能跑"补丁（v0.1.0 之后第 4 次修补，**桌面 app 第一个真正可用的版本**）
+
+---
+
+## 修了什么
+
+v0.1.0 发布时号称"能跑"，但普通用户**双击** .exe 会发现 app 实际上死得不能再死。v0.1.0.4 是把"能启动 + 几乎所有功能能用"这个最低门槛打通的修补包。
+
+### 🐛 修复 1 — 数据库初始化失败
+- **症状**：双击 .exe 弹错误框"无法启动应用：db 初始化失败 (PERSISTENCE_FAILED)"
+- **根因**：drizzle migrator 用正斜杠拼接路径 + Windows + asar 虚拟 fs 在嵌套子目录上 `fs.existsSync` 行为不稳定
+- **修复**：prod 模式直接走 `app.asar.unpacked/db/migrations/` 物理目录，绕开 asar 虚拟 fs
+
+### 🐛 修复 2 — UI 白板（preload 找不到 zod）
+- **症状**：app 启动了，但**所有功能**都用不了（除了主题切换 —— 因为主题切换不依赖 IPC）
+- **根因**：electron-builder 打包时只 `files: out/**/*`，asar 内**没有** node_modules；
+  preload 走 sandbox 模式从 asar 内找不到 `require('zod')`
+- **修复**：让 vite 把 zod inline 到 preload bundle（60KB → 169KB），preload 变成单文件 standalone
+
+### 🐛 修复 3 — 设置页全死
+- **症状**：点设置 → 备份列表 / 自动备份间隔 / 重置数据 全报 TypeError
+- **根因**：backupStore / settingsStore 用了错的 IPC 路径（`window.api.appEx` / `window.api.settings`），preload 实际暴露的是 `window.api.app`
+- **修复**：两个 store 的 `getXxxApi()` 都改成 `w.api?.app`
+
+### 🐛 修复 4 — updater 测试 mock 漏 default export
+- **症状**：`pnpm test` 4 个 fail：`No "default" export is defined on the "electron-updater" mock`
+- **根因**：v0.1.0.2 修主进程用 `import electronUpdater from 'electron-updater'` 但没改测试 mock
+- **修复**：测试 mock 同时返回 `default: exports`
+
+---
+
+## 已知问题（不阻塞 v0.1.0.4 发布的瑕疵）
+
+- **store-level 单元测试覆盖不足** — backupStore / settingsStore / taskStore / projectStore 等都缺独立单测，
+  靠 `tests/SettingsPage.test.tsx` 之类的 page-level 测试间接覆盖（mock 直接打桩到 `window.api`，不走 store 间接层）。
+  **v0.1.1 计划补 backupStore.test.ts / settingsStore.test.ts + store 测试模板**
+- **MINIMAX_AUTO_TEST 调试能力是临时新增的**（v0.1.0.4 调试时加的）—— 已经 env-gated 保留，
+  **生产代码不依赖**（if (env === '1') 包裹），CI / 下次 prod-only bug 出现时能用
+
+---
+
+## 怎么用
+
+1. 下载 `MiniMaxCode 工作台-0.1.0-x64.exe`（或解压 `MiniMaxCode 工作台-0.1.0-portable.zip`）
+2. 双击 .exe 安装（或直接运行 portable 解压目录）
+3. 桌面快捷方式会创建好
+4. **首次启动会自动建 db**（用 `C:\Users\<你>\AppData\Roaming\minimax-workstation\workstation.db`）
+5. 进设置 → AI 配置 → 填 API Key → 开始用
+
+---
+
+## 调试开关（**默认关闭**，需要时设环境变量）
+
+- `MINIMAX_VERBOSE_LOG=1` — 主进程 console 落 stdout
+- `MINIMAX_CDP_PORT=<n>` — 开 Chrome DevTools Protocol 远程调试
+- `MINIMAX_RENDERER_CONSOLE=1` — 渲染端 console 转发到主进程 stdout
+- `MINIMAX_AUTO_TEST=1` — 启动后自动跑 11 个 IPC smoke（验证 db + IPC 通道健康）
+- `MINIMAX_AUTO_TEST_EXIT=1` — auto-test 完成后 `app.quit()`（CI 用）
+
+---
+
+## 完整功能（v0.1.0 已有）
+
+### 📥 收集箱
+随手把想法、任务、文件、链接丢进收集箱，AI 自动识别结构化（任务 / 笔记 / 链接），一键转化。
+
+### ✅ 项目 + 任务
+看板三列（待办 / 进行中 / 已完成），按项目分组。任务可以加描述、优先级、关联笔记。AI 帮你从一句话扩展出完整任务草稿。
+
+### 🤖 AI 工作区
+- 两个 provider：MiniMax 内置 + 任意 OpenAI 兼容端点（自托管 / DeepSeek / 通义千问 / …）
+- 流式 chat
+- 结构化提取（"这段话里有哪些任务？" → 任务列表）
+- 失败兜底：AI 报错时给清晰提示，**不**泄露 API Key / 原始输出
+
+### 📚 知识库
+Markdown 笔记 + 多标签 + 关联任务。全文搜索（SQLite FTS5，毫秒级）。AI 一键摘要 + 标签建议。整批导出为带 YAML frontmatter 的 `.md` 文件。
+
+### 🪞 每日复盘
+5 段固定模板：今天完成 / 未完成 / 阻塞 / 明日 3 件事 / AI 草稿。AI 看完你今天做了什么 + 还剩什么，生成明日 3 件事草稿。**你说了算**——必须手动点"采纳"才入库。
+
+### ⚙️ 设置 + 备份
+- 主题切换（跟随系统 / 亮 / 暗）
+- 手动 + 自动备份（`30 / 60 / 120` 分钟可选）
 
 ---
 

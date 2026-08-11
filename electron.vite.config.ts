@@ -35,7 +35,11 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    // **不**用 externalizeDepsPlugin()：
+    // electron-builder 把 preload bundle 打进 asar 后，sandbox: true 模式下 preload
+    // 只能从 `app.asar/out/preload/` 向上找 `node_modules` —— 但 asar 里没 node_modules
+    // （electron-builder.yml `files: out/**/*` 只打包 out 目录），导致 `require('zod')` 失败。
+    // 让 vite/rollup 把 zod inline 到 preload bundle（~50KB）彻底解决。
     build: {
       outDir: 'out/preload',
       lib: {

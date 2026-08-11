@@ -135,6 +135,9 @@ export function createDbClient(
   db: WorkstationDb;
   info: ResolvedDbInfo;
 } {
+  // 仅从 appPath 推断 isDev（dev 模式 appPath 不会有 app.asar 后缀）。
+  // 这里用与主进程 `app.isPackaged` 等价的判断：appPath 以 `app.asar` 结尾 → prod。
+  const isPackaged = /[/\\]app\.asar$/.test(appPath);
   const absolutePath = resolvePath(dbPath);
 
   // 1. 确保目录存在
@@ -176,8 +179,8 @@ export function createDbClient(
   // 3. 包成 Drizzle
   const db = drizzle(sqlite, { schema }) as WorkstationDb;
 
-  // 4. 跑迁移（migrations 目录跟 db/client.ts 同级 db/migrations/）
-  const migrationsFolder = join(appPath, 'db', 'migrations');
+  // 4. 跑迁移（dev 走 appPath/db/migrations，prod 走 app.asar.unpacked/db/migrations）
+  const migrationsFolder = resolveMigrationsFolder({ isDev: !isPackaged, appPath });
   try {
     migrate(db, { migrationsFolder });
   } catch (err) {
@@ -262,4 +265,44 @@ export function resolveDbPath(opts: {
     return join(opts.appPath, '.data', 'workstation.db');
   }
   return join(opts.userDataDir, 'workstation.db');
+}
+
+/**
+ * 决定 drizzle migrator 的 `migrationsFolder` 路径。
+ *
+ * 关键设计：**prod 模式必须用 asar unpacked 物理路径**。
+ *
+ * 原因：
+ *   - `app.getAppPath()` 在 prod 返回 `.../resources/app.asar`（asar 内）
+ *   - drizzle migrate 内部用 `` `${migrationsFolder}/meta/_journal.json` ``（正斜杠）
+ *     调 `fs.existsSync` / `fs.readFileSync`
+ *   - asar 虚拟 fs 在 Windows + 混合正反斜杠 + 嵌套子目录上行为不稳定，
+ *     `fs.existsSync('app.asar\\db\\migrations/meta/_journal.json')` 经常返回 false
+ *   - electron-builder 的 `asarUnpack: db/migrations/**` 会把目录树**同时**
+ *     物理复制到 `app.asar.unpacked/db/migrations/`，**绕开 asar 虚拟 fs**
+ *
+ * 所以 prod 模式直接指向 `app.asar.unpacked/db/migrations/`，彻底走磁盘 fs。
+ * dev 模式 `appPath` 没有 `app.asar` 后缀 → 走默认项目根 + `db/migrations/`。
+ *
+ * 测试覆盖（`tests/db.test.ts::resolves migrations folder`）：
+ *   - dev: 返回 `<appPath>/db/migrations`
+ *   - prod + appPath 末尾是 `app.asar`: 返回 `<appPath>/../app.asar.unpacked/db/migrations`
+ *   - prod + appPath 不以 `app.asar` 结尾（异常情况）: 返回 `<appPath>/db/migrations`
+ *     （保守回退，避免 prod 跑出 dev 路径）
+ */
+export function resolveMigrationsFolder(opts: {
+  isDev: boolean;
+  appPath: string;
+}): string {
+  if (opts.isDev) {
+    return join(opts.appPath, 'db', 'migrations');
+  }
+  // prod: appPath = ".../resources/app.asar"
+  // unpacked 物理副本 = ".../resources/app.asar.unpacked/db/migrations"
+  const normalized = opts.appPath.replace(/[/\\]app\.asar$/, '');
+  if (normalized === opts.appPath) {
+    // 没有 .asar 后缀（异常路径）→ 保守回退
+    return join(opts.appPath, 'db', 'migrations');
+  }
+  return join(normalized, 'app.asar.unpacked', 'db', 'migrations');
 }

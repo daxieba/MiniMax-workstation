@@ -72,3 +72,21 @@ describe('Sidebar', () => {
     expect(screen.getByRole('heading', { name: 'AI 工作区' })).toBeInTheDocument();
   });
 });
+
+describe('AppRouter (v0.1.0.4 HashRouter fix)', () => {
+  // 关键修复：prod 模式 Electron 加载 file:// 协议 HTML，BrowserRouter
+  // 用 pushState('/path') 改 URL —— file:// 协议下被解析为实际文件路径，
+  // 触发主进程 will-navigate 拦截 → 路由 state 不更新 → NavLink 点击无反应
+  // HashRouter 用 #/inbox（URL fragment），任何协议下都 work。
+  //
+  // jsdom 测不到 BrowserRouter 在 file:// 下的真实失败（jsdom 默认 http://），
+  // 这里只验证：AppRouter 模块能正常 import + 在 jsdom 默认环境下挂载不抛错。
+  it('AppRouter exports a component that mounts without error', async () => {
+    const { AppRouter } = await import('@/AppRouter');
+    expect(typeof AppRouter).toBe('function');
+    // 不嵌套 router —— 直接测 AppRouter 函数本身能 render children
+    // 实际部署行为靠 electron-builder 打包后手测（prod exe 启动 + 点 sidebar）。
+    const { render } = await import('@testing-library/react');
+    expect(() => render(<AppRouter><div data-testid="probe">probe</div></AppRouter>)).not.toThrow();
+  });
+});

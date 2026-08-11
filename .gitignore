@@ -82,3 +82,24 @@ backups/
 # Electron/      # 移除 — Windows 大小写不敏感会误伤 electron/ 源码目录
 # electron.exe    # 同样误伤可能存在
 *.exe.bak
+
+# ============================================================
+#  TypeScript 增量构建缓存
+# ============================================================
+*.tsbuildinfo
+
+# ============================================================
+#  v0.1.0.4 调试产物
+# ============================================================
+# 调试脚本（CDP test 等临时工具，不进生产）
+cdp-test.cjs
+# 调试日志（启动 .exe 时的 stdout/stderr 重定向）
+app-stdout.log
+app-stdout.log.err
+app-stderr.log
+# 备份 build 失败时的 dist 残留（cleanup-build-artifacts.cjs 之外的手动备份）
+dist.bad*.old/
+dist-build.log*
+dist-build.log*.failed
+list-193.txt
+

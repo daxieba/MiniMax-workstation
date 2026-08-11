@@ -1,16 +1,26 @@
-# v0.1.0 Release Checklist
+# v0.1.0.4 Release Checklist
 
 > 老大（AI orchestrator）维护。每项 ✓/✗ 后注明完成时间 + 证据位置。
-> 此文件在 v0.1.0 发布后冻结，作为 v0.1.1 起点。
+> v0.1.0.4 = "终于能跑" 修补包 —— 桌面 app 第一个真正可用的版本。
+> 此文件在 v0.1.0.4 发布后冻结，作为 v0.1.1 起点。
 
-## ✅ 已完成（17 / 17 卡）
+## ✅ v0.1.0.4 修补（4 个核心 bug）
+
+| Bug | 状态 | 证据 |
+|---|---|---|
+| db migrations 报 "Can't find meta/_journal.json" | ✅ | `db/client.ts` `resolveMigrationsFolder()` 走 unpacked 物理路径 |
+| preload 报 "module not found: zod"（UI 白板） | ✅ | `electron.vite.config.ts` 去掉 preload `externalizeDepsPlugin()` |
+| backupStore/settingsStore 调错 IPC 路径（设置页死） | ✅ | `src/store/{backup,settings}Store.ts` 改 `w.api?.app` |
+| updater 测试 mock 漏 default export | ✅ | `tests/updaterIpc.test.ts` mock 工厂加 `default: exports` |
+
+## ✅ 已完成（17 / 17 卡 + 4 个修补）
 
 | 项 | 状态 | 证据 |
 |---|---|---|
 | 6 大模块功能完整 | ✅ | T2-2 / T2-3 / T2-4 / T3-3 / T4-1 / T4-2 / T4-3 / T5-1 / T5-2 |
 | typecheck 0 错误 | ✅ | `pnpm typecheck` exit 0 |
 | lint 0 错误 0 警告 | ✅ | `pnpm lint` exit 0 |
-| test 5/5 稳定连跑 | ✅ | 60 files / 987 cases / 60-64s/run |
+| test 5/5 稳定连跑 | ✅ | 60 files / **991** cases / 60-70s/run |
 | build 成功 | ✅ | `pnpm build` out/{main,preload,renderer} 齐全 |
 | 0 个 @ts-ignore / eslint-disable | ✅ | grep 0 匹配 |
 | 0 越界 | ✅ | 每张卡越界自检 9-11 项全过 |
@@ -20,6 +30,8 @@
 | NSIS deleteAppDataOnUninstall: false | ✅ | electron-builder.yml |
 | 自动更新 env-gated | ✅ | updater.ts:43 `UPDATE_FEED_ENV` |
 | 17/17 卡通过 | ✅ | TASK_TIMES.md |
+| 11/11 IPC smoke auto-test 通过 | ✅ | `MINIMAX_AUTO_TEST=1` 启动自动跑 |
+| 4 个 env-gated 调试能力永久保留 | ✅ | MINIMAX_{VERBOSE_LOG,CDP_PORT,RENDERER_CONSOLE,AUTO_TEST} |
 
 ## ⏳ 待炫总拍板（不可逆 / 外部动作）
 
@@ -42,6 +54,29 @@
 - [ ] Settings footer 去重（删 footer 版本号；保留 Section 6 即可）
 - [ ] 实际跑 `pnpm dist:nsis` 验证产物（在 Windows 10/11 干净环境）
 - [ ] README 截图补全（6 大模块 + 设置页）
+- [ ] **store-level 单元测试覆盖**（v0.1.0.4 暴露的盲区）：
+  - [ ] `tests/backupStore.test.ts` + `tests/settingsStore.test.ts`
+  - [ ] store 测试模板（vitest + window.api 注入 + 直接调 action）
+  - [ ] 至少给 5 个 store 各加 1 个 IPC 形状测试（避免再次"调错 API 路径"漏到 prod）
+
+## 📋 v0.1.0.4 已发布（2026-08-11）
+
+- ✅ **桌面 app 第一个真正可用的版本** —— v0.1.0 / 0.1.0.1 / 0.1.0.2 / 0.1.0.3 全部 release 后用户双击 .exe 仍会撞 bug
+- 4 个核心 bug 全部修通（db migrations / preload zod / store API 路径 / updater test mock）
+- 11/11 IPC smoke auto-test 通过（验证 db + 全部核心 IPC 通道）
+- 4 个 env-gated 调试能力永久保留（VERBOSE_LOG / CDP_PORT / RENDERER_CONSOLE / AUTO_TEST）
+- ✅ 产物：`D:\AI-project\MiniMax-project\个人工作台\dist\win-unpacked\MiniMaxCode 工作台.exe` (188 MB)
+
+## 📋 v0.1.0.3 已发布（2026-08-10）
+
+- ✅ db migrations 走 asarUnpacked 物理副本（fix commit `eb88e15`）
+  - `electron-builder.yml` 加 `db/migrations/**` 到 `files` + `asarUnpack: db/migrations/**`
+
+## 📋 v0.1.0.2 已发布（2026-08-10）
+
+- ✅ `electron-updater` import 报错（fix commit `770e196`）
+  - `electron/main/ipc/updater.ts` 改 default import
+- ✅ `.gitignore` `Electron/` 行误伤 `electron/` 源码目录（fix commit `770e196` 同 commit）
 
 ## 📋 v0.1.0.1 已发布（2026-08-10）
 

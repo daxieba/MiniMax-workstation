@@ -4,7 +4,8 @@
 > 核心闭环：**收集 → AI 处理 → 安排任务 → 执行完成 → 复盘沉淀**。
 
 [![version](https://img.shields.io/badge/version-0.1.0-blue.svg)](./VERSION)
-[![tests](https://img.shields.io/badge/tests-987%20passed-success.svg)](./CHANGELOG.md)
+[![patches](https://img.shields.io/badge/patches-v0.1.0.4-blueviolet.svg)](./CHANGELOG.md)
+[![tests](https://img.shields.io/badge/tests-991%20passed-success.svg)](./CHANGELOG.md)
 [![files](https://img.shields.io/badge/test%20files-60-informational.svg)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-Private-red.svg)]()
 

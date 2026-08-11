@@ -20,7 +20,7 @@ import { join, resolve as resolvePath } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { closeDb, createDbClient, resolveDbPath } from '../db/client';
+import { closeDb, createDbClient, resolveDbPath, resolveMigrationsFolder } from '../db/client';
 import { appMeta } from '../db/schema';
 
 const TMP_ROOT = join(tmpdir(), 'minimax-workstation-db-test');
@@ -182,5 +182,42 @@ describe('resolveDbPath (T1-3 helper)', () => {
       userDataDir: 'C:\\userdata',
     });
     expect(result).toBe(join('C:\\project', '.data', 'workstation.db'));
+  });
+});
+
+describe('resolveMigrationsFolder (v0.1.0.4 unpacked path fix)', () => {
+  // 关键修复：prod 模式必须绕开 asar 虚拟 fs，否则 drizzle migrator
+  // 在 Windows + 混合正反斜杠 + 嵌套子目录上 fs.existsSync(meta/_journal.json) 会失败。
+  it('dev mode: returns appPath/db/migrations', () => {
+    const result = resolveMigrationsFolder({
+      isDev: true,
+      appPath: 'C:\\project',
+    });
+    expect(result).toBe(join('C:\\project', 'db', 'migrations'));
+  });
+
+  it('prod mode: returns app.asar.unpacked/db/migrations (Windows backslash)', () => {
+    const result = resolveMigrationsFolder({
+      isDev: false,
+      appPath: 'C:\\app\\resources\\app.asar',
+    });
+    expect(result).toBe(join('C:\\app\\resources', 'app.asar.unpacked', 'db', 'migrations'));
+  });
+
+  it('prod mode: returns app.asar.unpacked/db/migrations (POSIX forward slash)', () => {
+    const result = resolveMigrationsFolder({
+      isDev: false,
+      appPath: '/opt/app/resources/app.asar',
+    });
+    expect(result).toBe(join('/opt/app/resources', 'app.asar.unpacked', 'db', 'migrations'));
+  });
+
+  it('prod mode without app.asar suffix: conservative fallback to appPath/db/migrations', () => {
+    // 异常路径（理论上 prod appPath 一定以 app.asar 结尾）—— 保守回退而不是抛错
+    const result = resolveMigrationsFolder({
+      isDev: false,
+      appPath: 'C:\\app\\resources',
+    });
+    expect(result).toBe(join('C:\\app\\resources', 'db', 'migrations'));
   });
 });

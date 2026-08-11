@@ -51,15 +51,15 @@ interface ApiSettingsShape {
 
 interface WindowWithApi {
   api?: {
-    settings?: ApiSettingsShape;
+    app?: ApiSettingsShape;
   };
 }
 
-/** 安全取 window.api.settings（避免 SSR / 测试环境 undefined）。 */
+/** 安全取 window.api.app。 */
 function getSettingsApi(): ApiSettingsShape | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as WindowWithApi;
-  return w.api?.settings ?? null;
+  return w.api?.app ?? null;
 }
 
 /** 默认 settings（与主进程 handler 兜底一致）。 */
