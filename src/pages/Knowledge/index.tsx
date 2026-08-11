@@ -50,10 +50,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Plus, Search, Sparkles, Tag as TagIcon } from 'lucide-react';
+import { Download, Library, Plus, Search, Sparkles, Tag as TagIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { NoteAIPanel } from '@/components/NoteAIPanel/NoteAIPanel';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
 import {
   NoteEditor,
   type NoteDraft,
@@ -740,15 +741,12 @@ export default function KnowledgePage(): React.ReactElement {
               />
             </>
           ) : (
-            <div
+            <EmptyState
+              icon={Library}
+              title="选一条笔记，或新建第一条"
+              description="支持 Markdown、标签、关联任务。顶部搜索栏可跨笔记 / 任务 / 收集箱全文搜索。"
               data-testid="knowledge-empty"
-              className="flex h-full items-center justify-center rounded-md border border-dashed border-line bg-base p-10 text-center text-sm text-secondary"
-            >
-              <div className="space-y-2">
-                <p className="text-base text-primary">从左侧选一条笔记，或新建第一条。</p>
-                <p>支持 Markdown、标签、关联任务。顶部搜索栏可跨笔记 / 任务 / 收集箱全文搜索。</p>
-              </div>
-            </div>
+            />
           )}
         </main>
       </div>

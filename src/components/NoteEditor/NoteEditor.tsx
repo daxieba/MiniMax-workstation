@@ -27,7 +27,7 @@
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Archive, Eye, Pencil, Save, Trash2, X } from 'lucide-react';
+import { Archive, Columns, Eye, Pencil, Save, Trash2, X } from 'lucide-react';
 
 import { NoteTagInput } from '@/components/NoteTagInput/NoteTagInput';
 import { NoteTaskPicker } from '@/components/NoteTaskPicker/NoteTaskPicker';
@@ -116,7 +116,7 @@ export function NoteEditor({
   error,
   editingNoteId,
 }: NoteEditorProps): React.ReactElement {
-  const [view, setView] = useState<'edit' | 'preview'>('edit');
+  const [view, setView] = useState<'edit' | 'preview' | 'split'>('edit');
 
   const canSubmit =
     draft.title.trim().length > 0 &&
@@ -242,6 +242,20 @@ export function NoteEditor({
             <button
               type="button"
               role="tab"
+              aria-selected={view === 'split'}
+              data-testid="note-editor-view-split"
+              onClick={() => setView('split')}
+              className={[
+                'rounded px-2 py-1 transition-colors',
+                view === 'split' ? 'bg-accent text-inverse' : 'text-secondary hover:text-primary',
+              ].join(' ')}
+            >
+              <Columns className="mr-1 inline h-3 w-3" aria-hidden="true" />
+              分屏
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={view === 'preview'}
               data-testid="note-editor-view-preview"
               onClick={() => setView('preview')}
@@ -264,6 +278,31 @@ export function NoteEditor({
             className="min-h-[280px] flex-1 resize-y rounded-md border border-line bg-base px-3 py-2 font-mono text-sm text-primary outline-none focus:border-accent"
             spellCheck={false}
           />
+        ) : view === 'split' ? (
+          <div
+            data-testid="note-editor-split"
+            className="flex min-h-[280px] flex-1 gap-2"
+          >
+            <textarea
+              data-testid="note-editor-content-split"
+              value={draft.content}
+              onChange={(e) => onChange({ ...draft, content: e.target.value })}
+              placeholder="左边写 Markdown，右边实时预览…"
+              className="min-h-[280px] w-1/2 resize-y rounded-md border border-line bg-base px-3 py-2 font-mono text-sm text-primary outline-none focus:border-accent"
+              spellCheck={false}
+            />
+            <div
+              data-testid="note-editor-preview-split"
+              data-md="preview"
+              className="prose prose-sm min-h-[280px] w-1/2 overflow-auto rounded-md border border-line bg-base px-4 py-2 text-primary prose-headings:text-primary prose-p:my-2 prose-li:my-0.5 prose-pre:bg-elevated prose-pre:border prose-pre:border-line prose-code:rounded prose-code:bg-elevated prose-code:px-1 prose-code:py-0.5 prose-code:text-accent prose-code:before:content-none prose-code:after:content-none prose-table:border-collapse prose-th:border prose-th:border-line prose-th:bg-elevated prose-th:px-2 prose-th:py-1 prose-td:border prose-td:border-line prose-td:px-2 prose-td:py-1 prose-a:text-accent prose-a:underline"
+            >
+              {draft.content.trim().length === 0 ? (
+                <p className="text-secondary">（还没有内容）</p>
+              ) : (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{draft.content}</ReactMarkdown>
+              )}
+            </div>
+          </div>
         ) : (
           <div
             data-testid="note-editor-preview"

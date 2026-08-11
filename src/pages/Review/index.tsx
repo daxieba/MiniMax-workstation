@@ -680,8 +680,8 @@ export default function ReviewPage(): React.ReactElement {
         >
           <h2 className="px-2 py-1 text-sm font-medium text-primary">最近 30 天</h2>
           {recent.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-secondary" data-testid="review-recent-empty">
-              还没有历史复盘。
+            <p className="px-2 py-3 text-xs text-secondary" data-testid="review-recent-empty">
+              还没有历史复盘。完成今天的复盘后会自动出现在这里。
             </p>
           ) : (
             <ul className="divide-y divide-line">

@@ -14,8 +14,9 @@
  *   - 二次确认在父页面做
  */
 
-import { Plus } from 'lucide-react';
+import { Plus, FolderOpen } from 'lucide-react';
 
+import { EmptyState } from '@/components/EmptyState/EmptyState';
 import type { Project } from '@shared/types/project';
 import type { ProjectArchiveFilter } from '@/store/projectStore';
 
@@ -135,12 +136,18 @@ export function ProjectList({
         ) : null}
 
         {projects.length === 0 ? (
-          <p
+          <EmptyState
+            icon={FolderOpen}
+            title={archiveFilter === 'archived' ? '没有已归档的项目' : '还没有项目'}
+            description={
+              archiveFilter === 'archived'
+                ? '归档的项目会出现在这里，方便回查。'
+                : '项目把相关任务归一组。建第一个项目开始组织你的工作。'
+            }
+            actionLabel={archiveFilter === 'archived' ? undefined : '新建项目'}
+            onAction={archiveFilter === 'archived' ? undefined : onCreate}
             data-testid="project-list-empty"
-            className="rounded border border-dashed border-line bg-base p-3 text-center text-xs text-secondary"
-          >
-            没有项目。点击右上角「新建」。
-          </p>
+          />
         ) : (
           projects.map((p) => (
             <div

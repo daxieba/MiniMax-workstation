@@ -35,6 +35,7 @@ import { AIModelInput } from '@/components/AIModelInput/AIModelInput';
 import { AIPendingConfirm } from '@/components/AIPendingConfirm/AIPendingConfirm';
 import { AIProviderPicker } from '@/components/AIProviderPicker/AIProviderPicker';
 import { AIQuickAction } from '@/components/AIQuickAction/AIQuickAction';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
 import type { JsonExtractionSchemaName } from '@shared/types/ai';
 import type { PendingResult, QuickAction } from '@/store/aiStore';
 import { useAiStore } from '@/store/aiStore';
@@ -320,13 +321,12 @@ function PendingList({
 }): React.ReactElement {
   if (items.length === 0) {
     return (
-      <div
+      <EmptyState
+        icon={Inbox}
+        title="待确认区为空"
+        description="运行 summarize / extract_tasks / extract_inbox / rewrite 后，结果会出现在这里等你的采纳。"
         data-testid="ai-pending-empty"
-        className="flex h-full items-center justify-center p-6 text-sm text-secondary"
-      >
-        待确认区为空。运行 summarize / extract_tasks / extract_inbox / rewrite
-        后，结果会出现在这里。
-      </div>
+      />
     );
   }
   return (

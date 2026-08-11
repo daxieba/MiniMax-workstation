@@ -19,22 +19,27 @@ export interface EmptyStateProps {
   /** 标题（一句话说明空状态）。 */
   title: string;
   /** 描述（解释为什么空 + 提示怎么填）。 */
-  description?: string;
+  description?: string | undefined;
   /** 大图标（顶部居中）。默认 Inbox。 */
-  icon?: LucideIcon;
+  icon?: LucideIcon | undefined;
   /** 主 CTA 按钮文案。 */
-  actionLabel?: string;
+  actionLabel?: string | undefined;
   /**
    * 主 CTA 点击。**可显式传 undefined**（exactOptionalPropertyTypes 兼容）——
    * 内部用 `actionLabel && onAction` 同时判断，避免传 undefined 时按钮还是渲染。
    */
   onAction?: (() => void) | undefined;
   /** 副 CTA 按钮文案（"了解更多" / "导入数据" 等）。 */
-  secondaryActionLabel?: string;
+  secondaryActionLabel?: string | undefined;
   /** 副 CTA 点击。 */
   onSecondaryAction?: (() => void) | undefined;
   /** 自定义 children（在描述下方、CTA 上方插入额外内容如键盘提示）。 */
-  children?: React.ReactNode;
+  children?: React.ReactNode | undefined;
+  /**
+   * 覆盖默认的 `data-testid`（默认 "empty-state"）。
+   * 用于让多个 empty state 出现在同一页面时仍能稳定测试 / 查询。
+   */
+  'data-testid'?: string | undefined;
 }
 
 export function EmptyState({
@@ -46,10 +51,11 @@ export function EmptyState({
   secondaryActionLabel,
   onSecondaryAction,
   children,
+  'data-testid': testId = 'empty-state',
 }: EmptyStateProps): React.ReactElement {
   return (
     <div
-      data-testid="empty-state"
+      data-testid={testId}
       className="flex h-full flex-col items-center justify-center gap-3 rounded-md border border-dashed border-line bg-base/50 px-6 py-12 text-center"
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent">
