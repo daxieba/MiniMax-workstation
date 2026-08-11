@@ -1,5 +1,5 @@
 /**
- * 任务看板容器（T2-3）
+ * 任务看板容器（T2-3 + v0.1.1 拖拽）
  *
  * 把当前 `tasks` 按 `status` 分到 4 列：todo / doing / done / archived。
  *
@@ -9,8 +9,11 @@
  *   - **不**调 store / IPC
  *   - **不**做二次确认（卡片内 / 父页面做）
  *
+ * **v0.1.1 拖拽**：
+ *   - 不直接调 store.transition（由父 ProjectsPage 透传 onDropTask 拿到 taskId + 目标列）
+ *   - 拖到自己列 = 父页面忽略（同列无意义）
+ *
  * **不做**：
- *   - 不做拖拽（T2-3 不引入拖拽库）
  *   - 不做列内排序（保持传入顺序）
  */
 
@@ -28,6 +31,12 @@ export interface TaskBoardProps {
   onTransitionIntent: (id: string, to: Task['status']) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
+  /**
+   * v0.1.1：拖拽 drop 回调。父页面 ProjectsPage 透传，**不**弹 confirm
+   * （拖 = 明确意图），直接调 store.transition。
+   * 同列拖到自己 = 父页面忽略。
+   */
+  onDropTask?: ((id: string, to: TaskStatus) => void) | undefined;
 }
 
 const COLUMN_TITLES: Record<TaskStatus, string> = {
@@ -46,6 +55,7 @@ export function TaskBoard({
   onTransitionIntent,
   onArchive,
   onDelete,
+  onDropTask,
 }: TaskBoardProps): React.ReactElement {
   // 按 status 分组（一次 memo，渲染稳定）
   const grouped = useMemo(() => {
@@ -78,6 +88,7 @@ export function TaskBoard({
             onTransitionIntent={onTransitionIntent}
             onArchive={onArchive}
             onDelete={onDelete}
+            onDropTask={onDropTask}
           />
         );
       })}

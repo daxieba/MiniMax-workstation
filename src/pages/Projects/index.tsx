@@ -25,9 +25,11 @@ import { TaskBoard } from '@/components/TaskBoard/TaskBoard';
 import { TaskForm, type TaskFormSubmitPayload } from '@/components/TaskForm/TaskForm';
 import { useProjectStore } from '@/store/projectStore';
 import { useTaskStore } from '@/store/taskStore';
+import { toast } from '@/store/toastStore';
 import type { Project } from '@shared/types/project';
 import type { Task } from '@shared/types/task';
 import type { TaskStatus } from '@shared/types/taskStatus';
+import { ALLOWED_TRANSITIONS } from '@shared/types/taskStatus';
 
 const TRUNCATE_MAX = 60;
 function truncate(s: string, max: number): string {
@@ -191,6 +193,31 @@ export default function ProjectsPage(): React.ReactElement {
     [taskTransition, tasks],
   );
 
+  // v0.1.1: 拖拽直接调 store.transition（不弹 confirm）—— 拖到目标列 = 明确意图
+  // 状态机 forward-only（todo → doing → done → archived），跨级 / 反向会被 store.transition 拒绝
+  const handleTaskDropped = useCallback(
+    async (id: string, to: TaskStatus): Promise<void> => {
+      const t = tasks.find((x) => x.id === id);
+      if (!t) return;
+      // 同列拖到自己 = 忽略
+      if (t.status === to) return;
+      // 状态机不允许的流转（反向）→ 不静默失败，弹 toast 让用户知道
+      const allowed = ALLOWED_TRANSITIONS[t.status];
+      if (!allowed.includes(to)) {
+        toast.error(`不允许从「${STATUS_LABELS[t.status]}」直接跳到「${STATUS_LABELS[to]}」（状态机不兼容）`);
+        return;
+      }
+      try {
+        await taskTransition(id, to);
+        toast.success(`已移到「${STATUS_LABELS[to]}」`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        toast.error(`流转失败：${msg}`);
+      }
+    },
+    [taskTransition, tasks],
+  );
+
   const handleArchiveTask = useCallback(
     async (id: string): Promise<void> => {
       const t = tasks.find((x) => x.id === id);
@@ -294,6 +321,7 @@ export default function ProjectsPage(): React.ReactElement {
               onTransitionIntent={handleTaskTransitionIntent}
               onArchive={handleArchiveTask}
               onDelete={handleDeleteTask}
+              onDropTask={handleTaskDropped}
             />
           </div>
         </main>

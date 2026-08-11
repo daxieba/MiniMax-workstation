@@ -1,5 +1,5 @@
 /**
- * 收集箱输入组件（T2-2 + T2-3 补全项目选择）
+ * 收集箱输入组件（T2-2 + T2-3 补全项目选择 + v0.1.1 polish）
  *
  * 顶部快速输入框：textarea + 项目下拉（可选）+ kind 选择 + "添加" 按钮。
  *
@@ -10,15 +10,18 @@
  *   - 项目下拉：用 `useProjectStore` 拉项目列表（只显示未归档的）
  *   - 选中项目后，提交时把 `projectId` 一起带上 → inbox 条目就归属该项目
  *
+ * **v0.1.1 polish**：暴露 `useImperativeHandle` `focus()` 方法让父组件从"空态 CTA"
+ *   跳到输入框（"录入第一条"按钮 → 焦点跳到这里）。
+ *
  * **不做**：
  *   - 不解析 URL（留给 T3-x AI 工作区或 T4-x 知识库）
- *   - 不做文件拖拽（第一版不做；PLAN §明确不做）
+ *   - 不做文件拖拽（v0.1.1 不做；留给 v0.1.2）
  *
  * **Props**：
  *   - `onSubmit`：必填，外部 store 收到后写 db 并显示 toast
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import type { InboxKind } from '@shared/types/inbox';
 
@@ -31,6 +34,11 @@ const KIND_OPTIONS: ReadonlyArray<{ value: InboxKind; label: string }> = [
   { value: 'link', label: '链接' },
 ];
 
+export interface InboxComposerHandle {
+  /** 把焦点跳到 textarea。 */
+  focus: () => void;
+}
+
 export interface InboxComposerProps {
   /** 提交时回调。父组件负责调 store.add。返回值忽略。 */
   onSubmit: (input: { content: string; kind: InboxKind; projectId: string | null }) => void | Promise<unknown>;
@@ -41,11 +49,21 @@ export interface InboxComposerProps {
 /**
  * 收集箱顶部输入组件。
  */
-export function InboxComposer({ onSubmit, submitting = false }: InboxComposerProps): React.ReactElement {
+export const InboxComposer = forwardRef<InboxComposerHandle, InboxComposerProps>(function InboxComposer(
+  { onSubmit, submitting = false },
+  ref,
+): React.ReactElement {
   const [content, setContent] = useState('');
   const [kind, setKind] = useState<InboxKind>('note');
   const [projectId, setProjectId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // 暴露 focus() 方法给父组件
+  useImperativeHandle(ref, () => ({
+    focus: (): void => {
+      textareaRef.current?.focus();
+    },
+  }), []);
 
   // 项目列表（拉取一次；只显示未归档的）
   const projects = useProjectStore((s) => s.projects);
@@ -155,4 +173,4 @@ export function InboxComposer({ onSubmit, submitting = false }: InboxComposerPro
       </div>
     </form>
   );
-}
+});

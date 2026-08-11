@@ -1,5 +1,5 @@
 /**
- * 收集箱列表组件（T2-2）
+ * 收集箱列表组件（T2-2 + v0.1.1 polish）
  *
  * 渲染当前过滤下的 items，每个调 InboxItem 子组件。
  *
@@ -7,12 +7,16 @@
  *   - 转换前**必须**调 `window.confirm`（PROJECT_IDENTITY.md §6.4），
  *     用户取消则不调 onConvert。
  *
+ * **空态**（v0.1.1）：用 EmptyState 通用组件，比纯文字更有引导。
+ *
  * **不做**：
  *   - 不做分页 / 无限滚动（第一版数据量小；如需后续卡加）
  *   - 不做多选 / 批量操作
  */
 
+import { Inbox } from 'lucide-react';
 import { InboxItem } from '@/components/InboxItem/InboxItem';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
 import type { InboxItem as InboxItemData } from '@shared/types/inbox';
 
 export interface InboxListProps {
@@ -26,26 +30,49 @@ export interface InboxListProps {
   onConvert: (id: string) => void;
   /** 当前过滤，用于空态文案。 */
   filter: 'active' | 'archived' | 'all';
+  /**
+   * 点击"立即录入"时聚焦到 InboxComposer 输入框（v0.1.1 polish）。
+   * 由父组件 InboxPage 注入 ref。
+   */
+  onFocusComposer?: () => void;
 }
 
-const EMPTY_TEXT: Record<'active' | 'archived' | 'all', string> = {
-  active: '没有待处理的收集项。在上方输入框录入第一条。',
-  archived: '还没有归档的收集项。',
-  all: '还没有任何收集项。在上方输入框录入第一条。',
+const EMPTY_COPY: Record<'active' | 'archived' | 'all', { title: string; description: string; cta: string }> = {
+  active: {
+    title: '收件箱是空的',
+    description: '随手把想法 / 任务 / 链接丢进来，AI 帮你识别结构化。也可以拖文件到窗口。',
+    cta: '录入第一条',
+  },
+  archived: {
+    title: '没有已归档的项',
+    description: '归档的收集项会出现在这里，方便回查。',
+    cta: '回到活跃项',
+  },
+  all: {
+    title: '收件箱空空如也',
+    description: '从录入第一条开始 —— 想到什么就记什么。',
+    cta: '录入第一条',
+  },
 };
 
 /**
  * 收集箱列表。
  */
-export function InboxList({ items, onArchive, onConvert, filter }: InboxListProps): React.ReactElement {
+export function InboxList({ items, onArchive, onConvert, filter, onFocusComposer }: InboxListProps): React.ReactElement {
   if (items.length === 0) {
+    const copy = EMPTY_COPY[filter];
+    // 永远显示 CTA —— onFocusComposer 缺失时给 noop（button 仍渲染，文案仍展示）
+    const handleAction = (): void => {
+      onFocusComposer?.();
+    };
     return (
-      <div
-        data-testid="inbox-list-empty"
-        className="rounded-md border border-dashed border-line bg-base p-6 text-center text-sm text-secondary"
-      >
-        {EMPTY_TEXT[filter]}
-      </div>
+      <EmptyState
+        icon={Inbox}
+        title={copy.title}
+        description={copy.description}
+        actionLabel={copy.cta}
+        onAction={handleAction}
+      />
     );
   }
 

@@ -31,22 +31,40 @@ function makeItem(overrides: Partial<InboxItemData> = {}): InboxItemData {
 }
 
 describe('InboxList', () => {
-  describe('empty state', () => {
-    it('shows "active" empty text when filter=active and items=[]', () => {
+  describe('empty state (v0.1.1: 用 EmptyState 通用组件)', () => {
+    it('shows EmptyState with "active" copy when filter=active and items=[]', () => {
       render(<InboxList items={[]} filter="active" onArchive={() => undefined} onConvert={() => undefined} />);
-      const empty = screen.getByTestId('inbox-list-empty');
+      const empty = screen.getByTestId('empty-state');
       expect(empty).toBeInTheDocument();
-      expect(empty.textContent).toContain('没有待处理的收集项');
+      expect(empty.textContent).toContain('收件箱是空的');
+      expect(empty.textContent).toContain('录入第一条');
     });
 
-    it('shows "archived" empty text when filter=archived', () => {
+    it('shows EmptyState with "archived" copy when filter=archived', () => {
       render(<InboxList items={[]} filter="archived" onArchive={() => undefined} onConvert={() => undefined} />);
-      expect(screen.getByTestId('inbox-list-empty').textContent).toContain('还没有归档');
+      const empty = screen.getByTestId('empty-state');
+      expect(empty.textContent).toContain('没有已归档的项');
     });
 
-    it('shows "all" empty text when filter=all', () => {
+    it('shows EmptyState with "all" copy when filter=all', () => {
       render(<InboxList items={[]} filter="all" onArchive={() => undefined} onConvert={() => undefined} />);
-      expect(screen.getByTestId('inbox-list-empty').textContent).toContain('还没有任何收集项');
+      const empty = screen.getByTestId('empty-state');
+      expect(empty.textContent).toContain('收件箱空空如也');
+    });
+
+    it('clicking "录入第一条" CTA calls onFocusComposer', () => {
+      const onFocusComposer = vi.fn();
+      render(
+        <InboxList
+          items={[]}
+          filter="active"
+          onArchive={() => undefined}
+          onConvert={() => undefined}
+          onFocusComposer={onFocusComposer}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('empty-state-action'));
+      expect(onFocusComposer).toHaveBeenCalledTimes(1);
     });
   });
 

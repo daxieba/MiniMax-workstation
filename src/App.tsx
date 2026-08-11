@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/Sidebar/Sidebar';
 import { ToastProvider } from '@/components/Toast/ToastProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary/ErrorBoundary';
 import { subscribeNativeTheme } from '@/lib/nativeTheme';
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import OverviewPage from '@/pages/Overview';
 import InboxPage from '@/pages/Inbox';
 import ProjectsPage from '@/pages/Projects';
@@ -28,6 +29,9 @@ export default function App(): React.ReactElement {
     const unsubscribe = subscribeNativeTheme();
     return unsubscribe;
   }, []);
+
+  // v0.1.1: 全局键盘快捷键（Ctrl+N / Ctrl+K / Ctrl+1-7 / Ctrl+/ / Esc）
+  useGlobalShortcuts();
 
   return (
     <ErrorBoundary>

@@ -24,6 +24,7 @@ import { Archive, Calendar, Edit3, Tag, Trash2 } from 'lucide-react';
 import type { Task, TaskPriority } from '@shared/types/task';
 
 import { TaskStatusActions } from '@/components/TaskStatusActions/TaskStatusActions';
+import { TASK_DRAG_MIME } from '@/components/TaskColumn/TaskColumn';
 
 export interface TaskCardProps {
   task: Task;
@@ -110,8 +111,17 @@ export function TaskCard({
   return (
     <article
       data-testid={`task-card-${task.id}`}
+      draggable={!isArchived}
+      onDragStart={(e) => {
+        // 把 task.id 放到 dataTransfer —— TaskColumn drop 时读
+        e.dataTransfer.setData(TASK_DRAG_MIME, task.id);
+        // text/plain fallback：让 drop 目标能用 getData('text/plain') 也能读到
+        e.dataTransfer.setData('text/plain', task.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       className={[
-        'rounded-md border bg-elevated p-3 shadow-card',
+        'rounded-md border bg-elevated p-3 shadow-card transition-shadow',
+        !isArchived ? 'cursor-grab active:cursor-grabbing hover:shadow-elevated' : '',
         isArchived ? 'border-line opacity-70' : 'border-line',
         isDone ? 'border-success/30' : '',
       ].join(' ')}
