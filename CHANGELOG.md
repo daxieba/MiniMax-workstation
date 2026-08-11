@@ -5,152 +5,84 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
-## [0.1.0.3] - 2026-08-10
+## [0.1.0.4] - 2026-08-11
 
 ### Fixed
 
-- **`MiniMaxCode 工作台.exe` 启动报 "数据库初始化失败"**
-  - 错误：`Failed to run db migrations from ...\dist\win-unpacked\resources\app.asar\db\migrations: Can't find meta/_journal.json file`
-  - 根因：v0.1.0 / v0.1.0.1 / v0.1.0.2 的 `electron-builder.yml` `files` 字段**没**包括 `db/migrations/`，asar 包里**没**这部分代码，T1-3 / T2-1 当时只 dev 模式测过没真打 dist:dir 暴露
-  - 修复：yml 加 `db/migrations/**` 到 `files`（include in asar）+ `asarUnpack: db/migrations/**`（物理 unpack 副本，因为 Drizzle migrator 用 `fs.readdirSync`，asar 虚拟 fs 支持有限）
-- 验证：`dist\win-unpacked\resources\app.asar.unpacked\db\migrations\` 包含 6 个 SQL + `meta/_journal.json` + 5 个 snapshot
+#### 1. **db migrations 在 prod 模式仍然报 "Can't find meta/_journal.json"**
+- 症状：v0.1.0.3 修了 asarUnpack，但启动 .exe 仍然弹"数据库初始化失败"对话框
+- 根因：Drizzle migrator 内部用 `` `${migrationsFolder}/meta/_journal.json` ``（**正斜杠**）调 `fs.existsSync`；
+  Windows + asar 虚拟 fs + 混合正反斜杠 + 嵌套子目录上行为不稳定，`fs.existsSync` 返回 false
+- 修复（`db/client.ts`）：新增 `resolveMigrationsFolder({ isDev, appPath })` 纯函数
+  - dev 模式：`appPath/db/migrations`（项目根）
+  - prod 模式：`app.asar.unpacked/db/migrations`（**绕开 asar 虚拟 fs，直接走物理磁盘**）
+  - 用 `appPath.replace(/[/\\]app\.asar$/, '')` 转换，保留 / 兼容 / 异常 fallback 三种情况
+- 测试覆盖（`tests/db.test.ts`）：4 个新 case（dev / prod Windows / prod POSIX / 异常 fallback）
 
-### Verified
+#### 2. **preload 加载失败 "Error: module not found: zod"**
+- 症状：app 启动但 UI 死白板 —— 主题切换能用（纯 zustand state），其他功能全死（IPC 通道没注册）
+- 根因：`electron.vite.config.ts` `preload` 段用 `externalizeDepsPlugin()` 让 zod 走运行时 `require('zod')`；
+  sandbox: true 模式下 preload 从 `app.asar/out/preload/` 向上找 `node_modules` —— **但 asar 里没 node_modules**
+  （`electron-builder.yml` `files: out/**/*` 只打包 out 目录，main 进程能通过 `out/main/../node_modules` 找到，preload 找不到）
+- 修复（`electron.vite.config.ts`）：**preload 段去掉 `externalizeDepsPlugin()`**，让 vite/rollup 把 zod inline 到 preload bundle
+  - preload bundle: 60KB → 169KB（zod 进去）
+  - 行为对比：之前需要 asar 内 node_modules + 复杂的 externalize 策略；现在单文件 standalone
 
-- ✅ `pnpm dist:dir` 成功生成 `dist\win-unpacked\MiniMaxCode 工作台.exe` (180 MB, LastWrite 20:42:24)
-- ✅ `app.asar.unpacked\db\migrations\` 物理副本完整
+#### 3. **backupStore / settingsStore 调错 IPC 路径导致设置页全死**
+- 症状：进设置页（备份/恢复/重置/自动备份间隔）全报 TypeError
+- 根因：T5-2 worker 写 store 时假设的 IPC 路径跟 preload 实际暴露的不一致
+  - `backupStore` 调 `window.api.appEx.*`（preload 没这个 key）
+  - `settingsStore` 调 `window.api.settings.*`（preload 把 getSettings/setSettings 放在 `app.*` 下）
+  - preload 实际：所有备份 + 设置 IPC 都在 `window.api.app.*` 下
+- 修复：
+  - `src/store/backupStore.ts`: `getBackupApi()` 改 `w.api?.app ?? null`
+  - `src/store/settingsStore.ts`: `getSettingsApi()` 改 `w.api?.app ?? null`
+  - `tests/SettingsPage.test.tsx`: MockApi 形状同步合并（`app` 段加 getSettings/setSettings/maybeAutoBackup + getPaths/listBackups 等），删除 `settings`/`appEx` 段
+- 测试覆盖盲区：T5-2 没为 backupStore / settingsStore 写 store-level 单元测试，**bug 漏到 prod**。
+  v0.1.1 计划补 backupStore.test.ts / settingsStore.test.ts + store 测试模板
 
-## [0.1.0.2] - 2026-08-10
-
-### Fixed
-
-- **`MiniMaxCode 工作台.exe` 启动崩溃**
-  - 错误：`SyntaxError: Named export 'autoUpdater' not found. The requested module 'electron-updater' is a CommonJS module`
-  - 根因：T5-3 worker 写的 `import { autoUpdater } from "electron-updater"`（ESM named import）对 CommonJS module 失败；T5-3 当时**没**真跑 `pnpm dist` 没暴露，v0.1.0.1 跑通后**才**暴露
-  - 修复：改用 default import + 解构（`import electronUpdater from 'electron-updater'; electronUpdater.autoUpdater.xxx`）
-- **`.gitignore` 误伤 `electron/` 源码目录**
-  - 根因：v0.1.0 写的 `Electron/`（意图忽略 Electron 运行时残留）在 Windows 大小写不敏感下匹配整个 `electron/` 源码目录
-  - 修复：删掉该行
-- **新增** `scripts/cleanup-build-artifacts.cjs` — 清理 v0.1.0 → v0.1.0.1 → v0.1.0.2 期间积累的失败 build 残留（~1.4 GB 已释放；剩余 ~100MB 被 Windows Defender 锁住 .asar，等几分钟自动释放）
-
-### Verified
-
-- ✅ `pnpm dist:dir` 成功生成 `dist\win-unpacked\MiniMaxCode 工作台.exe` (180 MB, LastWrite 20:26:56)
-- ✅ `MiniMaxCode 工作台.exe` 启动不再报 autoUpdater 错误
-- ✅ 桌面快捷方式路径不变（指向 `dist\win-unpacked\MiniMaxCode 工作台.exe`，自动用新版本）
-- ✅ cleanup 脚本 idempotent，下次跑仍能继续清理
-
-## [0.1.0.1] - 2026-08-10
-
-### Fixed
-
-- **`pnpm dist:dir` 在 Windows 普通用户下能跑通**
-  - electron-builder 25.1.8 hardcode 了 7-Zip 不支持的 `-snld` CLI 参数；
-    Windows 普通用户没 symlink 权限触发 darwin/linux 符号链接创建失败
-  - 新增 `7za-wrapper/Wrapper.cs`（C# 编译，5.6 KB）— 把 `-snld` 转成 7-Zip 21.07/26.02 都支持的 `-xr!darwin -xr!linux`
-  - 新增 `scripts/install-wrapper.cjs` — 自动化编译 wrapper 到 `node_modules\.pnpm\7zip-bin@5.2.0\node_modules\7zip-bin\win\x64\7za.exe`，备份原版到 `7za-real.exe` + `7za.exe.bak21`，幂等可重跑
-  - `package.json` 把 `7zip-bin ^5.2.0` 提升到 devDependencies（之前是 transitive）
-- **新装仓库后**：先 `pnpm install` → 再 `node scripts/install-wrapper.cjs` → 然后 `pnpm dist:dir` / `pnpm dist:nsis` 都不需要管理员
-
-### Verified
-
-- ✅ `pnpm dist:dir` 成功生成 `dist\win-unpacked\MiniMaxCode 工作台.exe` (180 MB)
-- ✅ 整个 `dist\win-unpacked\` 目录 ~227 MB
-- ✅ 用 huaweicloud 镜像（`ELECTRON_MIRROR` / `ELECTRON_BUILDER_BINARIES_MIRROR`）下 electron 33.4.11 (115 MB) + winCodeSign 2.6.0 (5.6 MB) 速度可接受
-- ⚠️ `pnpm dist:nsis` 仍需在干净环境验证（要下 NSIS 工具链 ~30MB）
-
-## [0.1.0] - 2026-08-10
-
-首个功能完整的 v0.1 发布。覆盖 6 大模块（收集箱 / 项目与任务 / AI 工作区 / 知识库 / 每日复盘 / 设置与备份），17 张任务卡全部通过验收门禁。
+#### 4. **v0.1.0.2 修复漏改 updater 测试 mock**
+- 症状：`tests/updaterIpc.test.ts` 4 个 test fail：vitest 抱怨 `No "default" export is defined on the "electron-updater" mock`
+- 根因：v0.1.0.2 修 main 用 `import electronUpdater from 'electron-updater'` + `electronUpdater.autoUpdater.xxx`，
+  但测试 `vi.mock('electron-updater', ...)` 工厂只返回 named export `{ autoUpdater }`，没 default。
+  vite SSR CJS interop 找不到 default export
+- 修复（`tests/updaterIpc.test.ts`）：mock 工厂同时返回 `default: exports` 让 default + named 都可用
+- 备注：v0.1.0.2 当时用 default import 是为了**真实**匹配 main runtime 行为（esbuild 编译后保留 `import x from "cjs-mod"` 不加 `__importDefault` wrapper，
+  vite 测试上下文走另一条 cjs interop 路径需要 default）
 
 ### Added
 
-#### 收集箱
-- 4 种条目类型（`note` / `todo` / `file` / `link`），可一键转任务
-- 状态机：`pending` → `processed` / `archived`
-- AI 一键提取：识别条目里的任务 / 想法 / 链接结构化输出
-- InboxComposer / InboxItem / InboxList 组件
+#### 调试能力（env-gated，prod 默认关闭，**永久保留**）
+- **`MINIMAX_VERBOSE_LOG=1`**：开 `enable-logging` + `v=1`，主进程 console.log/warn/error 落 stdout
+- **`MINIMAX_CDP_PORT=<n>`**：开 Chrome DevTools Protocol（remote-debugging-port + remote-allow-origins=*），
+  远程 evaluate JS / 抓 console / 触发 IPC
+- **`MINIMAX_RENDERER_CONSOLE=1`**：把渲染端 `console-message` 事件转发到主进程 stdout（按 env 注册 listener）
+- **`MINIMAX_AUTO_TEST=1`**：渲染端 ready-to-show 后自动跑 11 个 IPC smoke（直接 import handler 函数调，绕开 ipcMain / 渲染端）
+- **`MINIMAX_AUTO_TEST_EXIT=1`**：auto-test 完成后 `app.quit()`（CI 用，不阻塞 GUI 用户 session）
 
-#### 项目 + 任务
-- 看板三列（todo / doing / done）+ 已归档视图
-- 状态机 `todo → doing → done / archived`，重启任务必须从 `done → todo`（设计意图）
-- 项目分组、跨项目任务、拖拽改状态
-- AI 任务草稿：从 Inbox 条目 / 自由文本生成任务候选
-- TaskBoard / TaskColumn / TaskCard / TaskForm / TaskStatusActions 组件
+### Fixed (meta)
 
-#### AI 工作区
-- 2 个 provider：`minimax`（MiniMax 内置）+ `openai-compatible`（任意 OpenAI 兼容端点）
-- API Key 走 `@napi-rs/keyring`（Windows Credential Manager），永不出现在 IPC / 日志 / 导出文件
-- 流式 chat（`ai:chat` + `ai:chat:chunk` 事件）
-- 结构化 JSON 提取（`ai:extractJson`）—— 4 个固定 schema：inbox_items / task_drafts / note_summary / review_draft
-- 错误兜底：AI 失败返回 `EXTERNAL_FAILURE`，错误信息不含原始输出 / API Key
-- AIProviderPicker / AIQuickAction / AIPendingConfirm / AIChat 组件
+#### **v0.1.0 commit 漏了 `electron/` 源码目录** — 这是 v0.1.0 起所有 bug 的源头
+- 症状：v0.1.0 commit `2faf700` 里**没有**任何 `electron/main/` `electron/preload/` `electron/shared/` 下的文件
+  （203 files / 47724 insertions 全是 renderer / db / tests / config）
+- 影响：
+  - v0.1.0 编译时**本地有这些文件**所以 build 成功（用的是 disk 上文件）
+  - **但 git 仓库没跟踪**，v0.1.0.1 / v0.1.0.2 / v0.1.0.3 fix commit 也都没补回来
+  - **如果有人 clone v0.1.0 tag，跑 `pnpm install && pnpm build` 会编译出没有主进程的 bundle**
+  - 即便用本地 build，"为什么 store 调 IPC 静默失败" 也找不到代码（store 期望 `window.api.app.listBackups()` 但主进程代码不存在）
+- 修复（`fix(v0.1.0.4)` commit `58ee52f`）：把 `electron/main/` `electron/preload/` `electron/shared/` 下所有 22 个 .ts 文件全部 add 进 git
+  - 包括 credentials/credentialManager.ts + index.ts + 13 个 ipc/*.ts + 6 个 providers/*.ts + 1 个 services/*.ts + preload/index.ts + shared/types.ts
+- 教训：v0.1.0 release commit `2faf700` 用 `git add .` 时**没**把 `electron/` 加进去（v0.1.0 fix commit 也都漏检 .git tracking status）
+  - v0.1.1 流程改进：每次 `git add` 后必须 `git status --short` 确认 expected file 全部 staged
 
-#### 知识库
-- Markdown 笔记 + 标签（多对多）+ 关联任务
-- 全文搜索：SQLite FTS5 虚表（`notes_fts` / `inbox_fts` / `tasks_fts`）+ 9 个同步触发器
-- AI 摘要：基于笔记内容生成标题 / 摘要 / 标签（`note_summary` schema）
-- 一键导出：多选 + 选目录 + 写 `.md` + YAML frontmatter（字段白名单，不含敏感信息）
-- NoteEditor / NoteViewer / NoteList / NoteTagInput / NoteTaskPicker / NoteCard / NoteAIPanel / NoteExportDialog 组件
+### Verified
 
-#### 每日复盘
-- 5 段固定模板：今天完成 / 未完成 / 阻塞 / 明日 3 件事 / AI 草稿
-- 日期选择器 + 前后翻 + 最近 30 天列表
-- AI 日报草稿：从当天 + 昨天任务 / Inbox 拼接 prompt → `review_draft` schema 提取
-- **强制** 用户手动"采纳"才入库（草稿不入库）
-- 草稿 3 按钮：采纳并填充 / 重新生成 / 丢弃
+- ✅ `pnpm typecheck` 干净
+- ✅ `pnpm lint` 干净
+- ✅ `pnpm test` × 5 轮稳定通过：60 test files / 991 cases
+- ✅ `pnpm dist:dir` 成功生成 `dist\win-unpacked\MiniMaxCode 工作台.exe` (188 MB)
+- ✅ `MINIMAX_AUTO_TEST=1` 启动后自动测 11 个 IPC 通道：**11/11 全过**（inbox.list / inbox.add / project.list / task.list / note.list / search.query / ai.listProviders / review.listRecent / app.getPaths / app.listBackups / app.getSettings）
+- ✅ db schema version 6，6 个 migration 全跑过
+- ✅ 桌面快捷方式路径不变（指向 `dist\win-unpacked\MiniMaxCode 工作台.exe`，自动用新版本）
 
-#### 设置 + 备份
-- 6 个 section：外观 / AI / 备份 / 备份文件列表 / 危险区 / 更新
-- 主题切换（system / light / dark）
-- 自动备份频率（0/30/60/120 分钟）+ 手动备份 + 立即备份
-- 备份格式：`.mmws.json`（单文件 JSON，**不**用 zip；不含 apiKey / 绝对路径 / FTS5 虚表数据）
-- 备份保留策略：自动备份保留最近 10 份，手动备份无限期
-- 恢复：选文件 → 大写 `RESTORE` 二次确认 → 自动备份当前 db → 事务替换 → 提示重启
-- 导出 / 导入：同 `.mmws.json` 格式
-- 重置：大写 `RESET` 二次确认 → 清空业务表 → 保留 `app_meta` schemaVersion
-- 通用 dialog IPC：`dialog:showSaveDialog` / `dialog:showOpenDialog`（T4-3 NoteExportDialog 的"浏览"按钮留的口子本卡补上）
-
-#### 发布骨架
-- `electron-builder.yml` 外置配置（appId `com.minimax.workstation` / NSIS / macOS dmg / Linux AppImage）
-- 3 个 dist scripts：`pnpm dist` / `dist:nsis` / `dist:dir`
-- NSIS 配置：用户选目录 + 桌面 / 开始菜单快捷方式 + `deleteAppDataOnUninstall: false`（卸载保留数据）
-- 自动更新 IPC 骨架：`app:checkForUpdate` / `app:downloadUpdate`，env-gated（`MINIMAX_UPDATE_FEED_URL` 未设时返回 `NOT_IMPLEMENTED`）
-- `docs/build-and-distribute.md` 文档（如何打 NSIS 包 / 配置更新源 / 签名占位说明）
-
-### Security
-- API Key 走 `@napi-rs/keyring`（NAPI 跨平台 binary，Windows Credential Manager）—— 永不进入渲染进程 / 日志 / 错误 / 备份文件
-- Zod 严格双向校验（IPC 边界全部 `.strict()` 拒额外字段，含 `app_meta` 5-key 白名单）
-- 备份文件不含 apiKey / 绝对路径 / FTS5 虚表数据
-- 50MB 单文件大小上限 + 路径穿越保护（`deleteBackupFile` 校验 `resolvedPath.startsWith(backups + sep)`）
-- 恢复 / 重置有 `RESTORE` / `RESET` 大写字符串字面量二次确认
-- AI 错误信息不含原始输出 / API Key
-- NSIS `deleteAppDataOnUninstall: false`（卸载保留用户数据）
-- 主进程 `contextIsolation: true` + `nodeIntegration: false` + `sandbox: true` + CSP 注入
-
-### Test Coverage
-- **60 test files / 987 test cases**
-- 5/5 稳定连跑（60-64s/run）
-- 0 个 `@ts-ignore` / `eslint-disable`
-- 0 越界（每张卡有自检报告）
-- vitest 串行配置（`pool: 'forks' + isolate: true + fileParallelism: false`）—— 解决 OS Credential Manager 跨文件锁竞争（T3-1 时代的 flaky 已修）
-- `better_sqlite3.electron.node` 命名修复（T1-3：better-sqlite3 12.x `database.js:52` 强制 `.node` 后缀）
-
-### Fixed
-- T3-1 flaky 测试（OS Credential Manager 跨文件锁竞争）
-- T1-3 better-sqlite3 native binary 命名（`better_sqlite3.node.electron` → `better_sqlite3.electron.node`）
-- T2-3 状态机语义（`done → doing` 不允许；`done` 只能 `→ todo` / `→ archived`）
-
-### Known Limitations
-- **T4-3 NoteExportDialog "浏览"按钮** 仍用 `window.prompt` 拿目录路径（已加 TODO 指向 T5-2 落地的 `dialog:showOpenDialog` IPC，留给 v0.2 小卡修）
-- **`NOT_IMPLEMENTED` 错误码** 不在 `PROJECT_IDENTITY §4.4` 错误码枚举里（v0.1 按指令新增并仅用于 updater IPC；规范化进枚举留 v0.2）
-- **`build/icon.ico` 未生成**：NSIS 用 electron-builder 默认占位 icon（v0.2 需补）
-- **Settings footer 重复显示版本号**：Section 6 + footer 都有版本显示（按指令"不重排前 5 section / footer"保留的视觉冗余）
-- **NSIS 真打未跑**：`pnpm dist:nsis` 未验证产物（需先下载 ~80MB electron + NSIS 工具链，CI 上跑更稳）
-- **vitest PowerShell 5.1 + pnpm 兼容**：直接 `pnpm exec vitest` 在 PowerShell 5.1 下会因 stderr ANSI 触发 `NativeCommandError`；解决方案用 `cmd /c "..."` 隔离（与代码无关）
-
-### Architecture
-- 严格分层：`electron/main` (主进程) / `electron/preload` (preload) / `src` (渲染) / `shared` (主预共享) / `db` (schema + 迁移)
-- 单写入者规则：任意时刻一个 worker 写一份代码（`PROJECT_IDENTITY.md §11.1`）
-- Zod 端到端契约：主进程入口校验 + preload 解析响应 + 渲染端 store 再次校验
-- IPC 错误统一 `isStructuredIpcError` 模式 + 7 个错误码（`VALIDATION_FAILED` / `NOT_FOUND` / `CONFLICT` / `DEPENDENCY_MISSING` / `EXTERNAL_FAILURE` / `PERSISTENCE_FAILED` / `INTERNAL`）
+## [0.1.0.3] - 2026-08-10
