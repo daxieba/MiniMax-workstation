@@ -50,6 +50,17 @@
 - 备注：v0.1.0.2 当时用 default import 是为了**真实**匹配 main runtime 行为（esbuild 编译后保留 `import x from "cjs-mod"` 不加 `__importDefault` wrapper，
   vite 测试上下文走另一条 cjs interop 路径需要 default）
 
+#### 5. **左侧 sidebar 导航点击没反应**（v0.1.0.4 后续发现）
+- 症状：v0.1.0.4 fix 后左侧 7 个导航项（总览/收集箱/项目/AI/知识库/复盘/设置）点击都没反应
+- 根因：`src/main.tsx` 用 `BrowserRouter`；Electron prod 模式 `mainWindow.loadFile()` 加载 `file://` 协议 HTML，
+  BrowserRouter 用 `window.history.pushState(state, '', '/inbox')` 改 URL —— `file://` 协议下被解析为实际文件路径，
+  触发主进程 `will-navigate` 拦截（`event.preventDefault()`）+ React Router 内部 state 不同步 → NavLink 点击后路由不切换
+- 修复（新增 `src/AppRouter.tsx` + `src/main.tsx` 改用 `AppRouter`）：
+  - dev 模式用 `BrowserRouter`（vite dev server 是 `http://`，正常）
+  - prod 模式用 `HashRouter`（`#/inbox` URL fragment，hash 永远不会被 file 协议解析）
+  - 切换条件：`import.meta.env.DEV`（vite 编译时替换为字面量 `true` / `false`），prod bundle 静态选 HashRouter
+- 测试覆盖（`tests/Sidebar.test.tsx`）：新增 `AppRouter` 导出 + 挂载 smoke test（jsdom 测不到 file:// 真实行为，靠 electron-builder 打包后手测）
+
 ### Added
 
 #### 调试能力（env-gated，prod 默认关闭，**永久保留**）
@@ -84,5 +95,14 @@
 - ✅ `MINIMAX_AUTO_TEST=1` 启动后自动测 11 个 IPC 通道：**11/11 全过**（inbox.list / inbox.add / project.list / task.list / note.list / search.query / ai.listProviders / review.listRecent / app.getPaths / app.listBackups / app.getSettings）
 - ✅ db schema version 6，6 个 migration 全跑过
 - ✅ 桌面快捷方式路径不变（指向 `dist\win-unpacked\MiniMaxCode 工作台.exe`，自动用新版本）
+
+### Fixed (process)
+
+#### **v0.1.0.4 第一次 commit `58ee52f` 用 `git add <path>` 漏 staged 14 个 fix 文件**
+- 现象：`git add electron/main/ electron/preload/ electron/shared/` 只 add 新文件，**不**add working tree 里的其他修改
+- 结果：v0.1.0.4 tag `f0340ec` 推出去后 GitHub 仓库**没**4 个 fix 代码，CHANGELOG 描述 + electron/ 源码 add 但 fix 实际代码缺席
+- 修复（commit `37054b7`）：重新 stage 所有 working tree 改动 + force-update v0.1.0.4 tag 指向 37054b7
+- 教训：永远用 `git add -A`（不是 `git add <path>`），`git add` 后立即 `git diff --staged --stat` + `git show --stat <commit>` 复核
+- 详见 agent memory "派单收尾前必查 git status" + "`git add <path>` 不会 add 其他 working tree 改动"
 
 ## [0.1.0.3] - 2026-08-10
