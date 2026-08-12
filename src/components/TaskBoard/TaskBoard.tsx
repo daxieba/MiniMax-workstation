@@ -22,6 +22,7 @@ import { useMemo } from 'react';
 import type { Task } from '@shared/types/task';
 import { TASK_STATUSES, type TaskStatus } from '@shared/types/taskStatus';
 
+import { useT } from '@/i18n';
 import { TaskColumn } from '@/components/TaskColumn/TaskColumn';
 
 export interface TaskBoardProps {
@@ -39,15 +40,10 @@ export interface TaskBoardProps {
   onDropTask?: ((id: string, to: TaskStatus) => void) | undefined;
 }
 
-const COLUMN_TITLES: Record<TaskStatus, string> = {
-  todo: '待处理',
-  doing: '进行中',
-  done: '已完成',
-  archived: '已归档',
-};
-
 /**
  * 4 列看板。
+ *
+ * **v0.1.2 i18n**：列标题从 useT() 派生。
  */
 export function TaskBoard({
   tasks,
@@ -57,6 +53,17 @@ export function TaskBoard({
   onDelete,
   onDropTask,
 }: TaskBoardProps): React.ReactElement {
+  const t = useT();
+  const COLUMN_TITLES: Record<TaskStatus, string> = useMemo(
+    () => ({
+      todo: t.pages.projects.statusTodo,
+      doing: t.pages.projects.statusDoing,
+      done: t.pages.projects.statusDone,
+      archived: t.pages.projects.statusArchived,
+    }),
+    [t],
+  );
+
   // 按 status 分组（一次 memo，渲染稳定）
   const grouped = useMemo(() => {
     const out: Record<TaskStatus, Task[]> = {
@@ -65,8 +72,8 @@ export function TaskBoard({
       done: [],
       archived: [],
     };
-    for (const t of tasks) {
-      out[t.status].push(t);
+    for (const tt of tasks) {
+      out[tt.status].push(tt);
     }
     return out;
   }, [tasks]);

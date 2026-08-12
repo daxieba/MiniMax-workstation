@@ -18,6 +18,7 @@ import { useState } from 'react';
 import type { Task } from '@shared/types/task';
 import type { TaskStatus } from '@shared/types/taskStatus';
 
+import { useT } from '@/i18n';
 import { TaskCard } from '@/components/TaskCard/TaskCard';
 
 export interface TaskColumnProps {
@@ -54,6 +55,7 @@ export function TaskColumn({
   onDelete,
   onDropTask,
 }: TaskColumnProps): React.ReactElement {
+  const t = useT();
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
@@ -117,7 +119,7 @@ export function TaskColumn({
             data-testid={`task-column-empty-${status}`}
             className="rounded border border-dashed border-line bg-base p-3 text-center text-xs text-secondary"
           >
-            {isDragOver ? '松开放到这里' : '暂无'}
+            {isDragOver ? t.pages.inbox.dropHint : t.common.noData}
           </p>
         ) : (
           tasks.map((t) => (

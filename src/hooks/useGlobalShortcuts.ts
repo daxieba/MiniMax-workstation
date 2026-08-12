@@ -1,16 +1,14 @@
 /**
- * 全局键盘快捷键（v0.1.1 polish）
+ * 全局键盘快捷键（v0.1.1 polish + v0.1.2 i18n）
  *
  * 监听 document keydown，按规则触发：
  *   - Ctrl+N / Cmd+N      → 跳到 /inbox + 聚焦输入框
  *   - Ctrl+K / Cmd+K      → 跳到 /knowledge（搜索栏）
+ *   - Ctrl+Shift+P / Cmd+Shift+P → 打开命令面板
  *   - Ctrl+1..7 / Cmd+1..7 → 切 sidebar（对应 NAV_ITEMS 顺序）
- *   - Ctrl+/              → 快捷键帮助（v0.1.1 stub，弹 toast 提示）
+ *   - Ctrl+/              → 快捷键帮助（弹 toast 提示）
  *   - Esc                 → 离开当前 focus（最简实现：blur active element）
- *
- * **不做**：
- *   - 不做 modal 焦点陷阱（v0.1.2 再补）
- *   - 不做快捷键自定义（v0.1.2 再补）
+ *   - Ctrl+Shift+L        → 切换语言（v0.1.2）
  *
  * 实现：把每条规则注册成 listener，type === 'keydown' 时 match。
  * macOS 用 metaKey，Windows/Linux 用 ctrlKey；统一当 "Cmd" 处理。
@@ -18,9 +16,11 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useI18nStore, useT } from '@/i18n';
+import { useCmdPaletteStore } from '@/store/cmdPaletteStore';
 import { toast } from '@/store/toastStore';
 
-// sidebar 顺序（必须与 Sidebar.tsx NAV_ITEMS 一致）
+// sidebar 顺序（必须与 Sidebar.tsx navItems 一致）
 const SIDEBAR_PATHS = ['/', '/inbox', '/projects', '/ai', '/knowledge', '/review', '/settings'] as const;
 
 function isMac(): boolean {
@@ -36,6 +36,9 @@ function isFormFieldFocused(): boolean {
 
 export function useGlobalShortcuts(): void {
   const navigate = useNavigate();
+  const t = useT();
+  const setLang = useI18nStore((s) => s.setLang);
+  const currentLang = useI18nStore((s) => s.lang);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
@@ -52,34 +55,47 @@ export function useGlobalShortcuts(): void {
         return;
       }
 
-      // Ctrl/Cmd + ?
-      if (e.key === 'n' || e.key === 'N') {
+      // Ctrl/Cmd + N（注意：需要 e.shiftKey === false，避免跟 Ctrl+Shift+N 冲突）
+      if (!e.shiftKey && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault();
         navigate('/inbox');
-        // 给点时间让 page 挂载，再聚焦输入框
         setTimeout(() => {
           const el = document.querySelector<HTMLTextAreaElement>('[data-testid="inbox-composer-content"]');
           el?.focus();
         }, 100);
-        toast.info('已跳到收集箱（Ctrl+N）');
+        toast.info(t.toasts.jumpedInbox);
         return;
       }
 
-      if (e.key === 'k' || e.key === 'K') {
+      if (!e.shiftKey && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         navigate('/knowledge');
         setTimeout(() => {
-          // Knowledge 页搜索框的 testid
           const el = document.querySelector<HTMLInputElement>('[data-testid="knowledge-search-input"]');
           el?.focus();
         }, 100);
-        toast.info('已跳到知识库（Ctrl+K）');
+        toast.info(t.toasts.jumpedSearch);
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + P → 命令面板
+      if (e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        useCmdPaletteStore.getState().openPalette();
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + L → 切换语言
+      if (e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+        e.preventDefault();
+        setLang(currentLang === 'zh-CN' ? 'en-US' : 'zh-CN');
+        toast.success(t.toasts.languageChanged);
         return;
       }
 
       if (e.key === '/') {
         e.preventDefault();
-        toast.info('快捷键帮助：Ctrl+N 收集箱 / Ctrl+K 搜索 / Ctrl+1-7 切页 / Esc 取消焦点');
+        toast.info(t.toasts.helpText);
         return;
       }
 
@@ -92,7 +108,7 @@ export function useGlobalShortcuts(): void {
         const path = SIDEBAR_PATHS[parseInt(digit[1]!, 10) - 1];
         if (path) {
           navigate(path);
-          toast.info(`已切到 ${path}`);
+          toast.info(t.toasts.switchedTo(path));
         }
       }
     };
@@ -101,5 +117,5 @@ export function useGlobalShortcuts(): void {
     return () => {
       document.removeEventListener('keydown', handler);
     };
-  }, [navigate]);
+  }, [navigate, t, setLang, currentLang]);
 }

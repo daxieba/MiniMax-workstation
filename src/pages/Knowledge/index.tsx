@@ -55,6 +55,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { NoteAIPanel } from '@/components/NoteAIPanel/NoteAIPanel';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { useT } from '@/i18n';
 import {
   NoteEditor,
   type NoteDraft,
@@ -85,6 +86,7 @@ function truncate(s: string, max: number): string {
 }
 
 export default function KnowledgePage(): React.ReactElement {
+  const t = useT();
   // 笔记 store
   const notes = useNoteStore((s) => s.notes);
   const notesLoading = useNoteStore((s) => s.loading);
@@ -269,16 +271,14 @@ export default function KnowledgePage(): React.ReactElement {
 
   const handleDeleteNote = useCallback(async (): Promise<void> => {
     if (!selectedNote) return;
-    const ok = window.confirm(
-      `确认删除笔记 "${truncate(selectedNote.title, TRUNCATE_MAX)}" 吗？\n\n（这是不可恢复操作。）`,
-    );
+    const ok = window.confirm(t.actions.deleteConfirm(truncate(selectedNote.title, TRUNCATE_MAX)));
     if (!ok) return;
     const success = await noteDelete(selectedNote.id);
     if (success) {
       setSelectedId(null);
       setView('view');
     }
-  }, [selectedNote, noteDelete]);
+  }, [selectedNote, noteDelete, t]);
 
   const handleArchiveNote = useCallback(async (): Promise<void> => {
     if (!selectedNote) return;
@@ -333,11 +333,11 @@ export default function KnowledgePage(): React.ReactElement {
   const handleSummarizeSelected = useCallback((): void => {
     if (!selectedNote) return;
     if (!aiHasKey) {
-      window.alert('请先到 AI 工作区配置 API Key');
+      window.alert(t.settings.sections.ai);
       return;
     }
     void aiRunStructuredAction('summarize', 'note_summary', selectedNote.content);
-  }, [selectedNote, aiHasKey, aiRunStructuredAction]);
+  }, [selectedNote, aiHasKey, aiRunStructuredAction, t]);
 
   /**
    * T4-3 NoteAIPanel "应用到笔记"：调 noteStore.update
@@ -371,12 +371,12 @@ export default function KnowledgePage(): React.ReactElement {
     (noteContent: string): void => {
       if (!selectedNote) return;
       if (!aiHasKey) {
-        window.alert('请先到 AI 工作区配置 API Key');
+        window.alert(t.settings.sections.ai);
         return;
       }
       void aiRunStructuredAction('summarize', 'note_summary', noteContent);
     },
-    [selectedNote, aiHasKey, aiRunStructuredAction],
+    [selectedNote, aiHasKey, aiRunStructuredAction, t],
   );
 
   /**
@@ -385,11 +385,11 @@ export default function KnowledgePage(): React.ReactElement {
    */
   const handleOpenExport = useCallback((): void => {
     if (notes.length === 0) {
-      window.alert('没有可导出的笔记');
+      window.alert(t.pages.knowledge.noExportable);
       return;
     }
     setExportOpen(true);
-  }, [notes.length]);
+  }, [notes.length, t]);
 
   /**
    * T4-3 NoteExportDialog 提交导出。
@@ -434,10 +434,8 @@ export default function KnowledgePage(): React.ReactElement {
     <section className="flex h-full flex-col">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-elevated/40 px-6 py-4">
         <div>
-          <h1 className="text-2xl font-semibold text-primary">知识库</h1>
-          <p className="text-sm text-secondary">
-            Markdown 笔记 + 标签 + 关联任务。共 {notes.length} 条。
-          </p>
+          <h1 className="text-2xl font-semibold text-primary">{t.pages.knowledge.title}</h1>
+          <p className="text-sm text-secondary">{t.pages.knowledge.subtitle(notes.length)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* T4-3：AI 摘要选中 / 导出选中 / 新建 */}
@@ -446,22 +444,22 @@ export default function KnowledgePage(): React.ReactElement {
             data-testid="knowledge-ai-summarize-selected"
             onClick={handleSummarizeSelected}
             disabled={!selectedNote || aiLoading}
-            title={selectedNote ? '对当前选中的笔记生成 AI 摘要' : '请先选择一条笔记'}
+            title={selectedNote ? t.pages.knowledge.aiSummarizeHint : t.pages.knowledge.aiSummarizeHintNoSel}
             className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-sm text-primary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            AI 摘要选中
+            {t.pages.knowledge.aiSummarize}
           </button>
           <button
             type="button"
             data-testid="knowledge-export-open"
             onClick={handleOpenExport}
             disabled={notes.length === 0}
-            title={notes.length === 0 ? '没有可导出的笔记' : '导出当前过滤下的笔记为 .md 文件'}
+            title={notes.length === 0 ? t.pages.knowledge.noExportable : t.pages.knowledge.exportHint}
             className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-sm text-primary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            导出选中
+            {t.pages.knowledge.export}
           </button>
           <button
             type="button"
@@ -470,7 +468,7 @@ export default function KnowledgePage(): React.ReactElement {
             className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-inverse transition-colors hover:bg-accent-hover"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            新建笔记
+            {t.pages.knowledge.newNote}
           </button>
         </div>
       </header>
@@ -491,13 +489,13 @@ export default function KnowledgePage(): React.ReactElement {
             {/* 归档 toggle */}
             <div
               role="tablist"
-              aria-label="归档过滤"
+              aria-label={t.pages.knowledge.archiveFilterLabel}
               className="inline-flex w-full rounded-md border border-line bg-elevated p-0.5 text-xs"
             >
               {(
                 [
-                  { value: false, label: '活跃' },
-                  { value: true, label: '已归档' },
+                  { value: false, label: t.pages.knowledge.archiveFilterActive },
+                  { value: true, label: t.pages.knowledge.archiveFilterArchived },
                 ] as const
               ).map((opt) => {
                 const active = (filter.archived ?? false) === opt.value;
@@ -543,10 +541,10 @@ export default function KnowledgePage(): React.ReactElement {
                 }
               }}
               className="w-full rounded-md border border-line bg-base px-2 py-1.5 text-xs text-primary outline-none focus:border-accent"
-              aria-label="按项目过滤"
+              aria-label={t.pages.knowledge.projectFilterLabel}
             >
-              <option value="">全部项目</option>
-              <option value="__none__">（无项目）</option>
+              <option value="">{t.pages.knowledge.projectFilterAll}</option>
+              <option value="__none__">{t.pages.inbox.projectNone}</option>
               {activeProjects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -575,7 +573,7 @@ export default function KnowledgePage(): React.ReactElement {
                   onBlur={() => {
                     if (tagInput.length > 0) commitTagFilter();
                   }}
-                  placeholder="按标签过滤（Enter）"
+                  placeholder={t.pages.knowledge.tagFilterPlaceholder}
                   className="w-full rounded-md border border-line bg-base py-1.5 pl-7 pr-2 text-xs text-primary outline-none focus:border-accent"
                 />
               </div>
@@ -590,7 +588,7 @@ export default function KnowledgePage(): React.ReactElement {
                     handleFilterChange(rest);
                   }}
                   className="rounded-md border border-line bg-base px-2 py-1 text-xs text-secondary transition-colors hover:text-primary"
-                  title="清除标签过滤"
+                  title={t.pages.knowledge.tagFilterClear}
                 >
                   <TagIcon className="h-3 w-3" aria-hidden="true" />
                 </button>
@@ -619,7 +617,7 @@ export default function KnowledgePage(): React.ReactElement {
             ) : null}
             {notesLoading && notes.length === 0 ? (
               <p data-testid="knowledge-loading" className="text-xs text-secondary">
-                加载中…
+                {t.common.loading}
               </p>
             ) : (
               <NoteList
@@ -640,11 +638,11 @@ export default function KnowledgePage(): React.ReactElement {
             <div className="flex h-full flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-medium text-primary">
-                  搜索结果（{searchResults.length} 条）
+                  {t.pages.knowledge.subtitle(searchResults.length)}
                 </h2>
                 {searchLoading ? (
                   <span data-testid="knowledge-search-loading" className="text-xs text-secondary">
-                    搜索中…
+                    {t.common.loading}
                   </span>
                 ) : null}
               </div>
@@ -717,7 +715,7 @@ export default function KnowledgePage(): React.ReactElement {
                   onClick={handleEditStart}
                   className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-xs text-primary transition-colors hover:border-accent hover:text-accent"
                 >
-                  编辑
+                  {t.common.edit}
                 </button>
               </div>
               <NoteViewer
@@ -743,8 +741,8 @@ export default function KnowledgePage(): React.ReactElement {
           ) : (
             <EmptyState
               icon={Library}
-              title="选一条笔记，或新建第一条"
-              description="支持 Markdown、标签、关联任务。顶部搜索栏可跨笔记 / 任务 / 收集箱全文搜索。"
+              title={t.empty.knowledge.title}
+              description={t.empty.knowledge.description}
               data-testid="knowledge-empty"
             />
           )}

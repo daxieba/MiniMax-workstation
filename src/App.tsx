@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar/Sidebar';
 import { ToastProvider } from '@/components/Toast/ToastProvider';
 import { ErrorBoundary } from '@/components/ErrorBoundary/ErrorBoundary';
+import { CommandPalette, buildCommands } from '@/components/CommandPalette/CommandPalette';
 import { subscribeNativeTheme } from '@/lib/nativeTheme';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
+import { useI18nStore, useT } from '@/i18n';
+import { useCmdPaletteStore } from '@/store/cmdPaletteStore';
 import OverviewPage from '@/pages/Overview';
 import InboxPage from '@/pages/Inbox';
 import ProjectsPage from '@/pages/Projects';
@@ -20,8 +23,7 @@ import SettingsPage from '@/pages/Settings';
  * 路由不匹配 → fallback 到 Overview。
  * 错误边界覆盖整棵子树。
  *
- * 注意：theme store 已在 src/main.tsx 启动时通过 initTheme() 初始化；这里只
- * 订阅主进程 nativeTheme 推送，实现「跟随系统」实时响应。
+ * v0.1.2: 命令面板（Ctrl/Cmd+Shift+P）挂在这里 + 命令清单注册一次。
  */
 export default function App(): React.ReactElement {
   // 同步主进程主题推送 → store
@@ -30,8 +32,33 @@ export default function App(): React.ReactElement {
     return unsubscribe;
   }, []);
 
-  // v0.1.1: 全局键盘快捷键（Ctrl+N / Ctrl+K / Ctrl+1-7 / Ctrl+/ / Esc）
+  // v0.1.1: 全局键盘快捷键（Ctrl+N / Ctrl+K / Ctrl+1-7 / Ctrl+/ / Esc / Ctrl+Shift+P / Ctrl+Shift+L）
   useGlobalShortcuts();
+
+  // v0.1.2: 命令面板 —— 启动期注册一次
+  const t = useT();
+  const navigate = useNavigate();
+  const closePalette = useCmdPaletteStore((s) => s.closePalette);
+  const setLang = useI18nStore((s) => s.setLang);
+  const currentLang = useI18nStore((s) => s.lang);
+  const setCommands = useCmdPaletteStore((s) => s.setCommands);
+
+  const commands = useMemo(
+    () =>
+      buildCommands({
+        navigate: (to) => navigate(to),
+        closePalette: () => closePalette(),
+        setLang: (l) => setLang(l),
+        currentLang,
+        t,
+      }),
+    [navigate, closePalette, setLang, currentLang, t],
+  );
+
+  // commands 变化时同步到 store（让 useGlobalShortcuts 等潜在订阅方能拿到）
+  useEffect(() => {
+    setCommands(commands);
+  }, [commands, setCommands]);
 
   return (
     <ErrorBoundary>
@@ -51,6 +78,7 @@ export default function App(): React.ReactElement {
         </main>
       </div>
       <ToastProvider />
+      <CommandPalette commands={commands} />
     </ErrorBoundary>
   );
 }

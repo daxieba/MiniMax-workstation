@@ -1,5 +1,5 @@
 /**
- * 项目与任务页（T2-3 完整实现）
+ * 项目与任务页（T2-3 完整实现 + v0.1.2 i18n）
  *
  * 布局：
  *   - 左侧：项目列表（ProjectList）+ 顶部"+ 新建项目" + 归档过滤
@@ -13,6 +13,8 @@
  * 二次确认：
  *   - 删除 / 归档项目、删除任务：在各自的子组件里调 `window.confirm` 确认
  *   - 状态流转：子组件按钮不确认；父页面在 onTransitionIntent 内做确认
+ *
+ * **v0.1.2 i18n**：标题 / 按钮 / 状态机 label / 确认提示 从 useT() 派生。
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -23,6 +25,7 @@ import { ProjectForm, type ProjectFormSubmitPayload } from '@/components/Project
 import { ProjectList } from '@/components/ProjectList/ProjectList';
 import { TaskBoard } from '@/components/TaskBoard/TaskBoard';
 import { TaskForm, type TaskFormSubmitPayload } from '@/components/TaskForm/TaskForm';
+import { useT } from '@/i18n';
 import { useProjectStore } from '@/store/projectStore';
 import { useTaskStore } from '@/store/taskStore';
 import { toast } from '@/store/toastStore';
@@ -42,18 +45,9 @@ function projectIdForFilter(id: string | null | undefined): string | null | unde
   return id;
 }
 
-/** 选中的"项目"显示文案。 */
-function describeSelected(
-  selectedId: string | null | undefined,
-  projects: Project[],
-): string {
-  if (selectedId === undefined) return '全部任务';
-  if (selectedId === null) return '无项目';
-  const p = projects.find((x) => x.id === selectedId);
-  return p ? p.name : '未知项目';
-}
-
 export default function ProjectsPage(): React.ReactElement {
+  const t = useT();
+
   // store 状态
   const projects = useProjectStore((s) => s.projects);
   const projectsLoading = useProjectStore((s) => s.loading);
@@ -83,6 +77,28 @@ export default function ProjectsPage(): React.ReactElement {
   const [taskFormMode, setTaskFormMode] = useState<'create' | 'edit'>('create');
   const [taskFormTarget, setTaskFormTarget] = useState<Task | undefined>(undefined);
 
+  // 状态机 label（i18n 派生）
+  const STATUS_LABELS = useMemo<Record<TaskStatus, string>>(
+    () => ({
+      todo: t.pages.projects.statusTodo,
+      doing: t.pages.projects.statusDoing,
+      done: t.pages.projects.statusDone,
+      archived: t.pages.projects.statusArchived,
+    }),
+    [t],
+  );
+
+  // 选中的"项目"显示文案。
+  const describeSelected = useCallback(
+    (id: string | null | undefined, list: Project[]): string => {
+      if (id === undefined) return t.pages.projects.allTasks;
+      if (id === null) return t.pages.projects.noProject;
+      const p = list.find((x) => x.id === id);
+      return p ? p.name : t.pages.projects.unknownProject;
+    },
+    [t],
+  );
+
   // 首次挂载：拉项目 + 拉任务
   useEffect(() => {
     void useProjectStore.getState().load();
@@ -108,41 +124,40 @@ export default function ProjectsPage(): React.ReactElement {
     setProjectFormOpen(true);
   }, []);
 
-  const handleEditProject = useCallback((id: string): void => {
-    const p = projects.find((x) => x.id === id);
-    if (!p) return;
-    setProjectFormMode('edit');
-    setProjectFormTarget(p);
-    setProjectFormOpen(true);
-  }, [projects]);
+  const handleEditProject = useCallback(
+    (id: string): void => {
+      const p = projects.find((x) => x.id === id);
+      if (!p) return;
+      setProjectFormMode('edit');
+      setProjectFormTarget(p);
+      setProjectFormOpen(true);
+    },
+    [projects],
+  );
 
   const handleArchiveProject = useCallback(
     async (id: string): Promise<void> => {
       const p = projects.find((x) => x.id === id);
       if (!p) return;
-      const ok = window.confirm(`确认归档项目 "${p.name}" 吗？\n\n（项目下的任务不受影响，可随时恢复。）`);
+      const ok = window.confirm(t.actions.archiveProjectConfirm(p.name));
       if (!ok) return;
       await projectArchive(id);
     },
-    [projectArchive, projects],
+    [projectArchive, projects, t],
   );
 
   const handleDeleteProject = useCallback(
     async (id: string): Promise<void> => {
       const p = projects.find((x) => x.id === id);
       if (!p) return;
-      const ok = window.confirm(
-        `确认删除项目 "${p.name}" 吗？\n\n` +
-          `（如果项目下还有任务或收集项，删除会失败。请先转交/删除/归档。\n` +
-          `这是不可恢复操作。）`,
-      );
+      const ok = window.confirm(t.actions.deleteProjectConfirm(p.name));
       if (!ok) return;
       const success = await projectDelete(id);
       if (success && selectedId === id) {
         setSelectedId(undefined);
       }
     },
-    [projectDelete, projects, selectedId],
+    [projectDelete, projects, selectedId, t],
   );
 
   const handleProjectFormSubmit = useCallback(
@@ -171,10 +186,10 @@ export default function ProjectsPage(): React.ReactElement {
 
   const handleEditTask = useCallback(
     (id: string): void => {
-      const t = tasks.find((x) => x.id === id);
-      if (!t) return;
+      const t2 = tasks.find((x) => x.id === id);
+      if (!t2) return;
       setTaskFormMode('edit');
-      setTaskFormTarget(t);
+      setTaskFormTarget(t2);
       setTaskFormOpen(true);
     },
     [tasks],
@@ -182,63 +197,63 @@ export default function ProjectsPage(): React.ReactElement {
 
   const handleTaskTransitionIntent = useCallback(
     async (id: string, to: TaskStatus): Promise<void> => {
-      const t = tasks.find((x) => x.id === id);
-      if (!t) return;
-      const fromLabel = STATUS_LABELS[t.status];
+      const t2 = tasks.find((x) => x.id === id);
+      if (!t2) return;
+      const fromLabel = STATUS_LABELS[t2.status];
       const toLabel = STATUS_LABELS[to];
-      const ok = window.confirm(`确认将任务 "${truncate(t.title, TRUNCATE_MAX)}" 从「${fromLabel}」流转到「${toLabel}」吗？`);
+      const ok = window.confirm(t.actions.transitionConfirm(truncate(t2.title, TRUNCATE_MAX), fromLabel, toLabel));
       if (!ok) return;
       await taskTransition(id, to);
     },
-    [taskTransition, tasks],
+    [taskTransition, tasks, STATUS_LABELS, t],
   );
 
   // v0.1.1: 拖拽直接调 store.transition（不弹 confirm）—— 拖到目标列 = 明确意图
   // 状态机 forward-only（todo → doing → done → archived），跨级 / 反向会被 store.transition 拒绝
   const handleTaskDropped = useCallback(
     async (id: string, to: TaskStatus): Promise<void> => {
-      const t = tasks.find((x) => x.id === id);
-      if (!t) return;
+      const t2 = tasks.find((x) => x.id === id);
+      if (!t2) return;
       // 同列拖到自己 = 忽略
-      if (t.status === to) return;
+      if (t2.status === to) return;
       // 状态机不允许的流转（反向）→ 不静默失败，弹 toast 让用户知道
-      const allowed = ALLOWED_TRANSITIONS[t.status];
+      const allowed = ALLOWED_TRANSITIONS[t2.status];
       if (!allowed.includes(to)) {
-        toast.error(`不允许从「${STATUS_LABELS[t.status]}」直接跳到「${STATUS_LABELS[to]}」（状态机不兼容）`);
+        toast.error(t.toasts.invalidTransition(STATUS_LABELS[t2.status], STATUS_LABELS[to]));
         return;
       }
       try {
         await taskTransition(id, to);
-        toast.success(`已移到「${STATUS_LABELS[to]}」`);
+        toast.success(t.toasts.transitionOk(STATUS_LABELS[to]));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        toast.error(`流转失败：${msg}`);
+        toast.error(t.toasts.transitionFailed(msg));
       }
     },
-    [taskTransition, tasks],
+    [taskTransition, tasks, STATUS_LABELS, t],
   );
 
   const handleArchiveTask = useCallback(
     async (id: string): Promise<void> => {
-      const t = tasks.find((x) => x.id === id);
-      if (!t) return;
-      if (t.status === 'archived') return;
-      const ok = window.confirm(`确认归档任务 "${truncate(t.title, TRUNCATE_MAX)}" 吗？`);
+      const t2 = tasks.find((x) => x.id === id);
+      if (!t2) return;
+      if (t2.status === 'archived') return;
+      const ok = window.confirm(t.actions.archiveConfirm(truncate(t2.title, TRUNCATE_MAX)));
       if (!ok) return;
       await taskArchive(id);
     },
-    [taskArchive, tasks],
+    [taskArchive, tasks, t],
   );
 
   const handleDeleteTask = useCallback(
     async (id: string): Promise<void> => {
-      const t = tasks.find((x) => x.id === id);
-      if (!t) return;
-      const ok = window.confirm(`确认删除任务 "${truncate(t.title, TRUNCATE_MAX)}" 吗？\n\n（这是不可恢复操作。）`);
+      const t2 = tasks.find((x) => x.id === id);
+      if (!t2) return;
+      const ok = window.confirm(t.actions.deleteConfirm(truncate(t2.title, TRUNCATE_MAX)));
       if (!ok) return;
       await taskDelete(id);
     },
-    [taskDelete, tasks],
+    [taskDelete, tasks, t],
   );
 
   const handleTaskFormSubmit = useCallback(
@@ -266,11 +281,12 @@ export default function ProjectsPage(): React.ReactElement {
     <section className="flex h-full flex-col">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-elevated/40 px-6 py-4">
         <div>
-          <h1 className="text-2xl font-semibold text-primary">项目与任务</h1>
+          <h1 className="text-2xl font-semibold text-primary">{t.pages.projects.title}</h1>
           <p className="text-sm text-secondary">
-            当前视图：<span data-testid="projects-selected-label" className="font-medium text-primary">{describeSelected(selectedId, projects)}</span>
+            {t.pages.projects.currentView}
+            <span data-testid="projects-selected-label" className="font-medium text-primary">{describeSelected(selectedId, projects)}</span>
             {' · '}
-            共 {tasks.length} 条任务
+            {t.pages.projects.taskCount(tasks.length)}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -281,7 +297,7 @@ export default function ProjectsPage(): React.ReactElement {
             className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-inverse transition-colors hover:bg-accent-hover"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            新建任务
+            {t.pages.projects.newTask}
           </button>
         </div>
       </header>
@@ -311,7 +327,7 @@ export default function ProjectsPage(): React.ReactElement {
           ) : null}
 
           {projectsLoading || tasksLoading ? (
-            <p data-testid="projects-loading" className="text-xs text-secondary">加载中…</p>
+            <p data-testid="projects-loading" className="text-xs text-secondary">{t.common.loading}</p>
           ) : null}
 
           <div className="min-h-0 flex-1">
@@ -348,10 +364,3 @@ export default function ProjectsPage(): React.ReactElement {
     </section>
   );
 }
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: '待处理',
-  doing: '进行中',
-  done: '已完成',
-  archived: '已归档',
-};

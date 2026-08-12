@@ -1,5 +1,5 @@
 /**
- * 收集箱页（T2-2 完整实现 + v0.1.1 polish）
+ * 收集箱页（T2-2 完整实现 + v0.1.1 polish + v0.1.2 i18n）
  *
  * 结构：
  *   - 顶部：标题 + 计数 + 过滤切换（active / archived / all）
@@ -13,27 +13,22 @@
  *
  * v0.1.1 polish：
  *   - 注入 composer ref 让"空态 CTA 录入第一条"焦点跳到输入框
- *   - **拖拽支持**（Drag & Drop）：把文件 / 文本 / 链接拖到本页任意位置自动 add
- *     - 文件：electron 渲染进程拿不到 file 真实内容，只能拿到 path（File.path）
- *     - 文本：dataTransfer.getData('text/plain') → add kind=note
- *     - 链接：dataTransfer.getData('text/uri-list') → add kind=link
+ *   - 拖拽支持（Drag & Drop）：把文件 / 文本 / 链接拖到本页任意位置自动 add
  *   - 拖拽时光标位置高亮（drag-over 视觉反馈）
+ *
+ * v0.1.2 i18n：所有用户可见文本从 useT() 派生。
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { InboxComposer, type InboxComposerHandle } from '@/components/InboxComposer/InboxComposer';
 import { InboxList } from '@/components/InboxList/InboxList';
+import { useT } from '@/i18n';
 import { toast } from '@/store/toastStore';
-import { type InboxFilter, useInboxStore } from '@/store/inboxStore';
-
-const FILTERS: ReadonlyArray<{ value: InboxFilter; label: string }> = [
-  { value: 'active', label: '活跃' },
-  { value: 'archived', label: '已归档' },
-  { value: 'all', label: '全部' },
-];
+import { useInboxStore } from '@/store/inboxStore';
 
 export default function InboxPage(): React.ReactElement {
+  const t = useT();
   const items = useInboxStore((s) => s.items);
   const loading = useInboxStore((s) => s.loading);
   const error = useInboxStore((s) => s.error);
@@ -80,7 +75,7 @@ export default function InboxPage(): React.ReactElement {
         ? paths[0]!
         : `${paths[0]!}\n${paths.slice(1).join('\n')}`;
       void add({ content, kind: 'file' });
-      toast.success(`已加入收集箱（${paths.length} 个文件）`);
+      toast.success(t.toasts.filesAdded(paths.length));
       return;
     }
 
@@ -91,7 +86,7 @@ export default function InboxPage(): React.ReactElement {
       if (urls.length > 0) {
         const content = urls.length === 1 ? urls[0]! : urls.join('\n');
         void add({ content, kind: 'link' });
-        toast.success(`已加入收集箱（${urls.length} 个链接）`);
+        toast.success(t.toasts.linksAdded(urls.length));
         return;
       }
     }
@@ -102,7 +97,7 @@ export default function InboxPage(): React.ReactElement {
       // 检测是不是 URL（http / https 开头）
       const isUrl = /^https?:\/\//i.test(text.trim().split('\n')[0] ?? '');
       void add({ content: text.trim(), kind: isUrl ? 'link' : 'note' });
-      toast.success('已加入收集箱');
+      toast.success(t.toasts.inboxAdded);
     }
   };
 
@@ -129,6 +124,15 @@ export default function InboxPage(): React.ReactElement {
     }
   };
 
+  const filterLabels = useMemo(
+    () => [
+      { value: 'active' as const, label: t.pages.inbox.filterActive },
+      { value: 'archived' as const, label: t.pages.inbox.filterArchived },
+      { value: 'all' as const, label: t.pages.inbox.filterAll },
+    ],
+    [t],
+  );
+
   return (
     <section
       className={[
@@ -147,23 +151,21 @@ export default function InboxPage(): React.ReactElement {
           className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-accent/10"
         >
           <div className="rounded-md border-2 border-dashed border-accent bg-elevated px-6 py-4 text-sm font-medium text-accent">
-            松开鼠标即可加入收集箱
+            {t.pages.inbox.dropHint}
           </div>
         </div>
       ) : null}
 
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-primary">收集箱</h1>
+          <h1 className="text-2xl font-semibold text-primary">{t.pages.inbox.title}</h1>
           <p className="text-sm text-secondary">
-            快速记录、归档、转为任务。共 {items.length} 条。
-            <span className="ml-2 text-xs text-secondary/70">
-              （提示：拖文件 / 链接 / 文本到本页任意位置可自动添加）
-            </span>
+            {t.pages.inbox.subtitle} {t.pages.inbox.count(items.length)}
+            <span className="ml-2 text-xs text-secondary/70">{t.pages.inbox.hint}</span>
           </p>
         </div>
-        <div role="tablist" aria-label="过滤" className="inline-flex rounded-md border border-line bg-elevated p-1">
-          {FILTERS.map((f) => (
+        <div role="tablist" aria-label={t.pages.inbox.filterActive} className="inline-flex rounded-md border border-line bg-elevated p-1">
+          {filterLabels.map((f) => (
             <button
               key={f.value}
               type="button"

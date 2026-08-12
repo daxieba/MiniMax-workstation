@@ -1,5 +1,5 @@
 /**
- * 收集箱输入组件（T2-2 + T2-3 补全项目选择 + v0.1.1 polish）
+ * 收集箱输入组件（T2-2 + T2-3 补全项目选择 + v0.1.1 polish + v0.1.2 i18n）
  *
  * 顶部快速输入框：textarea + 项目下拉（可选）+ kind 选择 + "添加" 按钮。
  *
@@ -13,26 +13,18 @@
  * **v0.1.1 polish**：暴露 `useImperativeHandle` `focus()` 方法让父组件从"空态 CTA"
  *   跳到输入框（"录入第一条"按钮 → 焦点跳到这里）。
  *
- * **不做**：
- *   - 不解析 URL（留给 T3-x AI 工作区或 T4-x 知识库）
- *   - 不做文件拖拽（v0.1.1 不做；留给 v0.1.2）
+ * **v0.1.2 i18n**：kind 标签 / placeholder / 按钮 / aria label 从 useT() 派生。
  *
  * **Props**：
  *   - `onSubmit`：必填，外部 store 收到后写 db 并显示 toast
  */
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import type { InboxKind } from '@shared/types/inbox';
 
+import { useT } from '@/i18n';
 import { useProjectStore } from '@/store/projectStore';
-
-const KIND_OPTIONS: ReadonlyArray<{ value: InboxKind; label: string }> = [
-  { value: 'note', label: '想法' },
-  { value: 'todo', label: '待办' },
-  { value: 'file', label: '文件' },
-  { value: 'link', label: '链接' },
-];
 
 export interface InboxComposerHandle {
   /** 把焦点跳到 textarea。 */
@@ -53,6 +45,7 @@ export const InboxComposer = forwardRef<InboxComposerHandle, InboxComposerProps>
   { onSubmit, submitting = false },
   ref,
 ): React.ReactElement {
+  const t = useT();
   const [content, setContent] = useState('');
   const [kind, setKind] = useState<InboxKind>('note');
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -87,6 +80,16 @@ export const InboxComposer = forwardRef<InboxComposerHandle, InboxComposerProps>
     }
   }, [submitting]);
 
+  const kindOptions = useMemo(
+    () => [
+      { value: 'note' as const, label: t.pages.inbox.kindNote },
+      { value: 'todo' as const, label: t.pages.inbox.kindTodo },
+      { value: 'file' as const, label: t.pages.inbox.kindFile },
+      { value: 'link' as const, label: t.pages.inbox.kindLink },
+    ],
+    [t],
+  );
+
   const trimmed = content.trim();
   const canSubmit = trimmed.length > 0 && !submitting;
 
@@ -108,7 +111,7 @@ export const InboxComposer = forwardRef<InboxComposerHandle, InboxComposerProps>
     >
       <div className="flex flex-col gap-2">
         <label htmlFor="inbox-composer-content" className="text-xs text-secondary">
-          快速记录
+          {t.pages.inbox.composerLabel}
         </label>
         <textarea
           ref={textareaRef}
@@ -116,15 +119,15 @@ export const InboxComposer = forwardRef<InboxComposerHandle, InboxComposerProps>
           data-testid="inbox-composer-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={'想到什么就写下来：\n• 一句话想法\n• 待办（标"待办"后可在「项目与任务」转任务）\n• 文件路径\n• 链接'}
+          placeholder={t.pages.inbox.composerPlaceholder}
           rows={3}
           className="w-full resize-y rounded-md border border-line bg-base px-3 py-2 text-sm text-primary outline-none focus:border-accent"
           disabled={submitting}
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2" role="radiogroup" aria-label="条目类型">
-              {KIND_OPTIONS.map((opt) => (
+            <div className="flex items-center gap-2" role="radiogroup" aria-label={t.pages.inbox.kindLabel}>
+              {kindOptions.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -151,9 +154,9 @@ export const InboxComposer = forwardRef<InboxComposerHandle, InboxComposerProps>
                 setProjectId(v.length === 0 ? null : v);
               }}
               className="rounded-md border border-line bg-base px-2 py-1 text-xs text-primary outline-none focus:border-accent"
-              aria-label="归属项目"
+              aria-label={t.pages.inbox.projectLabel}
             >
-              <option value="">（无项目）</option>
+              <option value="">{t.pages.inbox.projectNone}</option>
               {visibleProjects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -167,7 +170,7 @@ export const InboxComposer = forwardRef<InboxComposerHandle, InboxComposerProps>
             disabled={!canSubmit}
             className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-inverse transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? '提交中…' : '添加'}
+            {submitting ? t.pages.inbox.submitting : t.pages.inbox.submit}
           </button>
         </div>
       </div>

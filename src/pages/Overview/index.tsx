@@ -1,5 +1,5 @@
 /**
- * 总览页（T2-4 完整实现）
+ * 总览页（T2-4 完整实现 + v0.1.2 i18n）
  *
  * 一屏总览用户的"主闭环"状态：
  *   - 顶部：欢迎语 + 今日日期 + 数据加载状态
@@ -11,22 +11,14 @@
  *       4. 当前项目进度（project + task 聚合，按最近活动排序）
  *   - 1 张 AI 占位卡片（T3-x 接入）
  *
- * **数据流**（纯前端聚合，不加新 IPC handler）：
- *   - 挂载时调 3 个 store.load()：`useInboxStore` / `useTaskStore` / `useProjectStore`
- *   - 过滤 / 排序 / 切片都在前端 useMemo 里做
- *   - 提交快速输入 → `inboxStore.add`，store 内部显示 toast
+ * **v0.1.2 i18n**：标题 / 卡片 / 优先级 / kind / 逾期文案 / 时间格式 / 相对时间 全部派生自 useT()。
+ *
+ * **数据流**（纯前端聚合，不加新 IPC handler）。
  *
  * **不做**：
  *   - 不做"最近 AI 结果"（T3-x 接入）
  *   - 不做日历 / 看板（PLAN §1 总览只列这些）
  *   - 不加新 IPC handler（任务卡硬约束）
- *
- * **依赖**：
- *   - 复用 T2-2 `inboxStore` / T2-3 `taskStore` / T2-3 `projectStore`
- *   - 复用 T2-2 `InboxItem` 视觉风格（kind badge / 时间）
- *   - 不复用 `InboxComposer`：因为它会做 projectStore.load 与项目下拉，超出本卡简化版需要
- *
- * @used-by src/App.tsx (route "/")
  */
 
 import { useEffect, useMemo } from 'react';
@@ -35,7 +27,8 @@ import { CalendarDays, Inbox as InboxIcon, Sparkles } from 'lucide-react';
 
 import { OverviewCard } from '@/components/OverviewCard/OverviewCard';
 import { QuickInput } from '@/components/QuickInput/QuickInput';
-import { daysOverdue, isOverdue, isToday, relativeTime } from '@/lib/dateUtils';
+import { useT, useI18nStore, type Lang } from '@/i18n';
+import { daysOverdue, isOverdue, isToday } from '@/lib/dateUtils';
 import { useInboxStore } from '@/store/inboxStore';
 import { useProjectStore } from '@/store/projectStore';
 import { useTaskStore } from '@/store/taskStore';
@@ -44,31 +37,50 @@ import type { Project } from '@shared/types/project';
 import type { Task, TaskPriority } from '@shared/types/task';
 import { TASK_STATUSES } from '@shared/types/taskStatus';
 
-const INBOX_KIND_LABELS: Record<InboxKind, string> = {
-  note: '想法',
-  todo: '待办',
-  file: '文件',
-  link: '链接',
-};
-
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  high: '高',
-  medium: '中',
-  low: '低',
-};
-
 const PRIORITY_BADGE_CLASS: Record<TaskPriority, string> = {
   high: 'border-danger/40 bg-danger-soft text-danger',
   medium: 'border-accent/40 bg-accent-soft text-accent',
   low: 'border-line bg-elevated text-secondary',
 };
 
-const TIME_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-  weekday: 'long',
-});
+/** 拿当前 lang 派生日期 / 相对时间 / kind 标签。 */
+function useOverviewI18n() {
+  const t = useT();
+  const lang = useI18nStore((s) => s.lang);
+  return useMemo(() => {
+    const dateFmt = new Intl.DateTimeFormat(lang, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    });
+    const shortTimeFmt = new Intl.DateTimeFormat(lang, {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const relFmt = lang === 'zh-CN' ? new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' }) : new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    return {
+      lang,
+      t,
+      dateFmt,
+      shortTimeFmt,
+      relFmt,
+      kindLabels: {
+        note: t.pages.overview.kindNote,
+        todo: t.pages.overview.kindTodo,
+        file: t.pages.overview.kindFile,
+        link: t.pages.overview.kindLink,
+      } satisfies Record<InboxKind, string>,
+      priorityLabels: {
+        high: t.pages.overview.priorityHigh,
+        medium: t.pages.overview.priorityMedium,
+        low: t.pages.overview.priorityLow,
+      } satisfies Record<TaskPriority, string>,
+    };
+  }, [t, lang]);
+}
 
 /** 把任务按 priority desc + dueDate asc 排序。 */
 function sortByPriorityThenDueDate(tasks: Task[]): Task[] {
@@ -96,16 +108,28 @@ function truncate(s: string, max: number): string {
   return `${s.slice(0, max)}…`;
 }
 
-/** 短时间格式（mm-dd HH:mm）。 */
-const SHORT_TIME_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-});
+function formatShortTime(ms: number, fmt: Intl.DateTimeFormat): string {
+  return fmt.format(new Date(ms));
+}
 
-function formatShortTime(ms: number): string {
-  return SHORT_TIME_FORMATTER.format(new Date(ms));
+function formatRelativeTime(ms: number, now: number, relFmt: Intl.RelativeTimeFormat, lang: Lang): string {
+  const diffMs = ms - now;
+  const absSec = Math.abs(diffMs) / 1000;
+  if (absSec < 60) return lang === 'zh-CN' ? '刚刚' : 'just now';
+  if (absSec < 3600) {
+    const m = Math.round(diffMs / 60000);
+    return relFmt.format(m, 'minute');
+  }
+  if (absSec < 86400) {
+    const h = Math.round(diffMs / 3600000);
+    return relFmt.format(h, 'hour');
+  }
+  if (absSec < 86400 * 30) {
+    const d = Math.round(diffMs / 86400000);
+    return relFmt.format(d, 'day');
+  }
+  const mo = Math.round(diffMs / (86400000 * 30));
+  return relFmt.format(mo, 'month');
 }
 
 /** 单个任务行（今日 / 逾期共用渲染）。 */
@@ -113,9 +137,21 @@ interface TaskRowProps {
   task: Task;
   projectName: string | null;
   showOverdueBadge: boolean;
+  shortTimeFmt: Intl.DateTimeFormat;
+  priorityLabels: Record<TaskPriority, string>;
+  noProjectLabel: string;
+  overdueLabel: (days: number) => string;
 }
 
-function TaskRow({ task, projectName, showOverdueBadge }: TaskRowProps): React.ReactElement {
+function TaskRow({
+  task,
+  projectName,
+  showOverdueBadge,
+  shortTimeFmt,
+  priorityLabels,
+  noProjectLabel,
+  overdueLabel,
+}: TaskRowProps): React.ReactElement {
   const days = task.dueDate !== null ? daysOverdue(task.dueDate) : 0;
   return (
     <li
@@ -126,9 +162,9 @@ function TaskRow({ task, projectName, showOverdueBadge }: TaskRowProps): React.R
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-primary">{task.title}</p>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-secondary">
-          {projectName ? <span>{projectName}</span> : <span>无项目</span>}
+          {projectName ? <span>{projectName}</span> : <span>{noProjectLabel}</span>}
           {task.dueDate !== null ? (
-            <span>{formatShortTime(task.dueDate)}</span>
+            <span>{formatShortTime(task.dueDate, shortTimeFmt)}</span>
           ) : null}
         </div>
       </div>
@@ -138,22 +174,30 @@ function TaskRow({ task, projectName, showOverdueBadge }: TaskRowProps): React.R
             data-testid={`overview-task-overdue-${task.id}`}
             className="rounded-md border border-danger/40 bg-danger-soft px-1.5 py-0.5 text-[10px] font-medium text-danger"
           >
-            逾期 {days} 天
+            {overdueLabel(days)}
           </span>
         ) : null}
         <span
           data-testid={`overview-task-priority-${task.id}`}
           className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_BADGE_CLASS[task.priority]}`}
         >
-          {PRIORITY_LABELS[task.priority]}
+          {priorityLabels[task.priority]}
         </span>
       </div>
     </li>
   );
 }
 
-/** 单个 inbox 行（用 div，外面由父 ul/li + Link 包裹；避免 li 嵌 li）。 */
-function InboxRow({ item }: { item: InboxItem }): React.ReactElement {
+/** 单个 inbox 行。 */
+function InboxRow({
+  item,
+  kindLabel,
+  relTime,
+}: {
+  item: InboxItem;
+  kindLabel: string;
+  relTime: string;
+}): React.ReactElement {
   return (
     <div
       data-testid={`overview-inbox-item-${item.id}`}
@@ -165,9 +209,9 @@ function InboxRow({ item }: { item: InboxItem }): React.ReactElement {
           data-testid={`overview-inbox-kind-${item.id}`}
           className="rounded-md border border-line bg-elevated px-1.5 py-0.5 text-[10px] text-secondary"
         >
-          {INBOX_KIND_LABELS[item.kind]}
+          {kindLabel}
         </span>
-        <span>{relativeTime(item.createdAt)}</span>
+        <span>{relTime}</span>
       </div>
     </div>
   );
@@ -178,9 +222,10 @@ interface ProjectRowProps {
   project: Project;
   total: number;
   done: number;
+  progressAria: string;
 }
 
-function ProjectRow({ project, total, done }: ProjectRowProps): React.ReactElement {
+function ProjectRow({ project, total, done, progressAria }: ProjectRowProps): React.ReactElement {
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
     <li
@@ -201,7 +246,7 @@ function ProjectRow({ project, total, done }: ProjectRowProps): React.ReactEleme
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`${project.name} 进度`}
+        aria-label={progressAria}
         className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-elevated"
       >
         <div
@@ -218,6 +263,9 @@ function ProjectRow({ project, total, done }: ProjectRowProps): React.ReactEleme
  * 总览页。
  */
 export default function OverviewPage(): React.ReactElement {
+  const ov = useOverviewI18n();
+  const t = ov.t;
+
   // ===== store 订阅 =====
   const tasks = useTaskStore((s) => s.tasks);
   const tasksLoading = useTaskStore((s) => s.loading);
@@ -240,81 +288,72 @@ export default function OverviewPage(): React.ReactElement {
   }, [taskLoad, projectLoad, inboxLoad]);
 
   // ===== 派生数据 =====
-
-  /** 今日任务（dueDate = 今天 AND status NOT IN done/archived）。 */
   const todayTasks = useMemo<Task[]>(() => {
     return sortByPriorityThenDueDate(
       tasks.filter(
-        (t) =>
-          t.dueDate !== null &&
-          isToday(t.dueDate) &&
-          ACTIVE_STATUSES.includes(t.status),
+        (t2) =>
+          t2.dueDate !== null &&
+          isToday(t2.dueDate) &&
+          ACTIVE_STATUSES.includes(t2.status),
       ),
     );
   }, [tasks]);
 
-  /** 逾期任务（dueDate < 今天 AND status NOT IN done/archived）。 */
   const overdueTasks = useMemo<Task[]>(() => {
     return sortByPriorityThenDueDate(
       tasks.filter(
-        (t) =>
-          t.dueDate !== null &&
-          isOverdue(t.dueDate) &&
-          ACTIVE_STATUSES.includes(t.status),
+        (t2) =>
+          t2.dueDate !== null &&
+          isOverdue(t2.dueDate) &&
+          ACTIVE_STATUSES.includes(t2.status),
       ),
     );
   }, [tasks]);
 
-  /** 最近 5 条 active inbox。 */
   const recentInbox = useMemo<InboxItem[]>(() => {
     return inboxItems
       .filter((it) => it.status === 'active')
       .slice(0, RECENT_INBOX_LIMIT);
   }, [inboxItems]);
 
-  /** 未归档项目 + 各项目 done/total，按最近任务活动 desc 排序。 */
   const projectProgress = useMemo<
     Array<{ project: Project; total: number; done: number; lastActivity: number }>
   >(() => {
     const activeProjects = projects.filter((p) => !p.archived);
     const rows = activeProjects.map((p) => {
-      const projectTasks = tasks.filter((t) => t.projectId === p.id);
+      const projectTasks = tasks.filter((t2) => t2.projectId === p.id);
       const total = projectTasks.length;
-      const done = projectTasks.filter((t) => t.status === 'done').length;
+      const done = projectTasks.filter((t2) => t2.status === 'done').length;
       const lastActivity = projectTasks.reduce(
-        (acc, t) => (t.updatedAt > acc ? t.updatedAt : acc),
+        (acc, t2) => (t2.updatedAt > acc ? t2.updatedAt : acc),
         0,
       );
       return { project: p, total, done, lastActivity };
     });
-    // lastActivity desc；无任务（=0）的项目排在最末
     return rows.sort((a, b) => b.lastActivity - a.lastActivity);
   }, [projects, tasks]);
 
-  // 项目名查表（避免嵌套查找 O(n²)）
   const projectNameById = useMemo<Map<string, string>>(() => {
     const map = new Map<string, string>();
     for (const p of projects) map.set(p.id, p.name);
     return map;
   }, [projects]);
 
-  // ===== 计算 loading 聚合 =====
   const dataLoading = tasksLoading || projectsLoading || inboxLoading;
-  const todayDate = useMemo(() => TIME_FORMATTER.format(new Date()), []);
-
-  // ===== 渲染 =====
+  const todayDate = useMemo(() => ov.dateFmt.format(new Date()), [ov.dateFmt]);
+  const now = useMemo(() => Date.now(), []);
 
   return (
     <section className="flex h-full flex-col gap-4 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-primary">总览</h1>
+          <h1 className="text-2xl font-semibold text-primary">{t.pages.overview.title}</h1>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-secondary">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
             <span data-testid="overview-today-date">{todayDate}</span>
             {dataLoading ? (
               <span data-testid="overview-loading" className="ml-1 text-xs">
-                · 数据加载中…
+                {t.pages.overview.loadingHint}
               </span>
             ) : null}
           </p>
@@ -324,14 +363,13 @@ export default function OverviewPage(): React.ReactElement {
           className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-xs text-secondary transition-colors hover:text-primary"
         >
           <InboxIcon className="h-3.5 w-3.5" aria-hidden="true" />
-          查看全部收集箱
+          {t.pages.overview.viewAllInbox}
         </Link>
       </header>
 
       <QuickInput
         submitting={inboxLoading}
         onSubmit={(input) => {
-          // 总览页快速输入不绑项目（任务卡规格）
           void inboxAdd({ content: input.content, kind: input.kind, projectId: null });
         }}
       />
@@ -339,10 +377,10 @@ export default function OverviewPage(): React.ReactElement {
       <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
         <OverviewCard
           testId="today"
-          title="今日重点任务"
+          title={t.pages.overview.todayCard}
           loading={tasksLoading}
           isEmpty={todayTasks.length === 0}
-          emptyText="今天没有重点任务，去收集箱看看？"
+          emptyText={t.pages.overview.todayEmpty}
           headerExtra={
             <span
               data-testid="overview-today-count"
@@ -353,14 +391,18 @@ export default function OverviewPage(): React.ReactElement {
           }
         >
           <ul className="flex flex-col gap-2" data-testid="overview-today-list">
-            {todayTasks.map((t) => (
+            {todayTasks.map((t2) => (
               <TaskRow
-                key={t.id}
-                task={t}
+                key={t2.id}
+                task={t2}
                 projectName={
-                  t.projectId !== null ? projectNameById.get(t.projectId) ?? null : null
+                  t2.projectId !== null ? projectNameById.get(t2.projectId) ?? null : null
                 }
                 showOverdueBadge={false}
+                shortTimeFmt={ov.shortTimeFmt}
+                priorityLabels={ov.priorityLabels}
+                noProjectLabel={t.pages.overview.noProject}
+                overdueLabel={t.pages.overview.overdueDays}
               />
             ))}
           </ul>
@@ -368,10 +410,10 @@ export default function OverviewPage(): React.ReactElement {
 
         <OverviewCard
           testId="overdue"
-          title="逾期任务"
+          title={t.pages.overview.overdueCard}
           loading={tasksLoading}
           isEmpty={overdueTasks.length === 0}
-          emptyText="没有逾期任务 👍"
+          emptyText={t.pages.overview.overdueEmpty}
           headerExtra={
             overdueTasks.length > 0 ? (
               <span
@@ -384,14 +426,18 @@ export default function OverviewPage(): React.ReactElement {
           }
         >
           <ul className="flex flex-col gap-2" data-testid="overview-overdue-list">
-            {overdueTasks.map((t) => (
+            {overdueTasks.map((t2) => (
               <TaskRow
-                key={t.id}
-                task={t}
+                key={t2.id}
+                task={t2}
                 projectName={
-                  t.projectId !== null ? projectNameById.get(t.projectId) ?? null : null
+                  t2.projectId !== null ? projectNameById.get(t2.projectId) ?? null : null
                 }
                 showOverdueBadge
+                shortTimeFmt={ov.shortTimeFmt}
+                priorityLabels={ov.priorityLabels}
+                noProjectLabel={t.pages.overview.noProject}
+                overdueLabel={t.pages.overview.overdueDays}
               />
             ))}
           </ul>
@@ -399,16 +445,16 @@ export default function OverviewPage(): React.ReactElement {
 
         <OverviewCard
           testId="inbox"
-          title="最近收集"
+          title={t.pages.overview.inboxCard}
           loading={inboxLoading}
           isEmpty={recentInbox.length === 0}
-          emptyText="收集箱是空的"
+          emptyText={t.pages.overview.inboxEmpty}
           headerExtra={
             <Link
               to="/inbox"
               className="text-[11px] text-accent transition-colors hover:text-accent-hover"
             >
-              查看全部
+              {t.pages.overview.viewAll}
             </Link>
           }
         >
@@ -420,7 +466,11 @@ export default function OverviewPage(): React.ReactElement {
                   data-testid={`overview-inbox-link-${it.id}`}
                   className="block rounded-md transition-colors hover:bg-elevated"
                 >
-                  <InboxRow item={it} />
+                  <InboxRow
+                    item={it}
+                    kindLabel={ov.kindLabels[it.kind]}
+                    relTime={formatRelativeTime(it.createdAt, now, ov.relFmt, ov.lang)}
+                  />
                 </Link>
               </li>
             ))}
@@ -429,10 +479,10 @@ export default function OverviewPage(): React.ReactElement {
 
         <OverviewCard
           testId="projects"
-          title="当前项目进度"
+          title={t.pages.overview.projectsCard}
           loading={projectsLoading || tasksLoading}
           isEmpty={projectProgress.length === 0}
-          emptyText="还没有项目，去创建一个？"
+          emptyText={t.pages.overview.projectsEmpty}
         >
           <ul className="flex flex-col gap-2" data-testid="overview-projects-list">
             {projectProgress.map((row) => (
@@ -441,6 +491,7 @@ export default function OverviewPage(): React.ReactElement {
                 project={row.project}
                 total={row.total}
                 done={row.done}
+                progressAria={`${row.project.name} progress`}
               />
             ))}
           </ul>
@@ -453,9 +504,9 @@ export default function OverviewPage(): React.ReactElement {
       >
         <header className="mb-1 flex items-center gap-2 text-sm font-medium text-primary">
           <Sparkles className="h-4 w-4 text-accent" aria-hidden="true" />
-          最近 AI 结果
+          {t.pages.overview.aiPlaceholderTitle}
         </header>
-        <p className="text-xs text-secondary">AI 工作区将在 T3-x 接入</p>
+        <p className="text-xs text-secondary">{t.pages.overview.aiPlaceholderHint}</p>
       </section>
     </section>
   );

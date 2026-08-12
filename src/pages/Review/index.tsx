@@ -51,6 +51,7 @@ import {
 import { useAiStore } from '@/store/aiStore';
 import { useReviewStore } from '@/store/reviewStore';
 import { toast } from '@/store/toastStore';
+import { useT } from '@/i18n';
 import type { Review, ReviewDraft } from '@shared/types/review';
 
 /** 本地"今天"日期（`YYYY-MM-DD`）。 */
@@ -123,6 +124,7 @@ interface CompletedListProps {
 }
 
 function CompletedList({ rows, onChange, disabled }: CompletedListProps): React.ReactElement {
+  const t = useT();
   function add(): void {
     onChange([...rows, { taskId: '', title: '' }]);
   }
@@ -136,7 +138,7 @@ function CompletedList({ rows, onChange, disabled }: CompletedListProps): React.
     <div className="space-y-1" data-testid="review-completed-list">
       {rows.length === 0 ? (
         <p className="py-2 text-xs text-secondary" data-testid="review-completed-empty">
-          还没有完成项。点 + 添加。
+          {t.pages.review.completedEmpty}
         </p>
       ) : (
         rows.map((r, i) => (
@@ -150,7 +152,7 @@ function CompletedList({ rows, onChange, disabled }: CompletedListProps): React.
               checked
               disabled
               className="h-3.5 w-3.5 accent-accent"
-              aria-label="已完成"
+              aria-label={t.pages.review.ariaCompleted}
             />
             <input
               type="text"
@@ -158,7 +160,7 @@ function CompletedList({ rows, onChange, disabled }: CompletedListProps): React.
               value={r.title}
               onChange={(e) => update(i, { title: e.target.value })}
               disabled={disabled}
-              placeholder="任务标题"
+              placeholder={t.pages.review.completedPlaceholder}
               className="flex-1 rounded-md border border-line bg-elevated px-2 py-1 text-sm text-primary outline-none focus:border-accent"
             />
             <button
@@ -167,8 +169,8 @@ function CompletedList({ rows, onChange, disabled }: CompletedListProps): React.
               onClick={() => remove(i)}
               disabled={disabled}
               className="rounded p-1 text-secondary transition-colors hover:text-danger disabled:opacity-50"
-              title="删除"
-              aria-label="删除完成项"
+              title={t.pages.review.titleRemove}
+              aria-label={t.pages.review.ariaRemoveCompleted}
             >
               <X className="h-3 w-3" />
             </button>
@@ -183,7 +185,7 @@ function CompletedList({ rows, onChange, disabled }: CompletedListProps): React.
         className="inline-flex items-center gap-1 rounded-md border border-dashed border-line bg-base px-2 py-1 text-xs text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
       >
         <Plus className="h-3 w-3" aria-hidden="true" />
-        添加完成项
+        {t.pages.review.addCompleted}
       </button>
     </div>
   );
@@ -200,6 +202,7 @@ function UncompletedList({
   onChange,
   disabled,
 }: UncompletedListProps): React.ReactElement {
+  const t = useT();
   function add(): void {
     onChange([...rows, { taskId: '', title: '' }]);
   }
@@ -213,7 +216,7 @@ function UncompletedList({
     <div className="space-y-1" data-testid="review-uncompleted-list">
       {rows.length === 0 ? (
         <p className="py-2 text-xs text-secondary" data-testid="review-uncompleted-empty">
-          还没有未完成项。
+          {t.pages.review.uncompletedEmpty}
         </p>
       ) : (
         rows.map((r, i) => (
@@ -228,7 +231,7 @@ function UncompletedList({
                 checked={false}
                 disabled
                 className="h-3.5 w-3.5"
-                aria-label="未完成"
+                aria-label={t.pages.review.ariaUncompleted}
               />
               <input
                 type="text"
@@ -236,7 +239,7 @@ function UncompletedList({
                 value={r.title}
                 onChange={(e) => update(i, { title: e.target.value })}
                 disabled={disabled}
-                placeholder="任务标题"
+                placeholder={t.pages.review.completedPlaceholder}
                 className="flex-1 rounded-md border border-line bg-elevated px-2 py-1 text-sm text-primary outline-none focus:border-accent"
               />
             </div>
@@ -246,7 +249,7 @@ function UncompletedList({
               value={r.reason ?? ''}
               onChange={(e) => update(i, { reason: e.target.value })}
               disabled={disabled}
-              placeholder="未完成原因（可选）"
+              placeholder={t.pages.review.uncompletedReasonPlaceholder}
               className="flex-1 rounded-md border border-line bg-elevated px-2 py-1 text-sm text-primary outline-none focus:border-accent"
             />
             <button
@@ -255,8 +258,8 @@ function UncompletedList({
               onClick={() => remove(i)}
               disabled={disabled}
               className="rounded p-1 text-secondary transition-colors hover:text-danger disabled:opacity-50 sm:self-start"
-              title="删除"
-              aria-label="删除未完成项"
+              title={t.pages.review.titleRemove}
+              aria-label={t.pages.review.ariaRemoveUncompleted}
             >
               <X className="h-3 w-3" />
             </button>
@@ -271,7 +274,7 @@ function UncompletedList({
         className="inline-flex items-center gap-1 rounded-md border border-dashed border-line bg-base px-2 py-1 text-xs text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
       >
         <Plus className="h-3 w-3" aria-hidden="true" />
-        添加未完成项
+        {t.pages.review.addUncompleted}
       </button>
     </div>
   );
@@ -284,9 +287,10 @@ interface TopThreeListProps {
 }
 
 function TopThreeList({ rows, onChange, disabled }: TopThreeListProps): React.ReactElement {
+  const t = useT();
   function add(): void {
     if (rows.length >= 3) {
-      toast.info('最多 3 条');
+      toast.info(t.pages.review.topThreeMax);
       return;
     }
     onChange([...rows, '']);
@@ -301,10 +305,10 @@ function TopThreeList({ rows, onChange, disabled }: TopThreeListProps): React.Re
     <div className="space-y-1" data-testid="review-topthree-list">
       {rows.length === 0 ? (
         <p className="py-2 text-xs text-secondary" data-testid="review-topthree-empty">
-          还没有条目。点 + 添加（最多 3 条）。
+          {t.pages.review.topThreeEmpty}
         </p>
       ) : (
-        rows.map((t, i) => (
+        rows.map((tt, i) => (
           <div
             key={i}
             className="flex items-center gap-2"
@@ -314,10 +318,10 @@ function TopThreeList({ rows, onChange, disabled }: TopThreeListProps): React.Re
             <input
               type="text"
               data-testid={`review-topthree-input-${i}`}
-              value={t}
+              value={tt}
               onChange={(e) => update(i, e.target.value)}
               disabled={disabled}
-              placeholder="明日要做的事"
+              placeholder={t.pages.review.topThreePlaceholder}
               className="flex-1 rounded-md border border-line bg-elevated px-2 py-1 text-sm text-primary outline-none focus:border-accent"
             />
             <button
@@ -326,8 +330,8 @@ function TopThreeList({ rows, onChange, disabled }: TopThreeListProps): React.Re
               onClick={() => remove(i)}
               disabled={disabled}
               className="rounded p-1 text-secondary transition-colors hover:text-danger disabled:opacity-50"
-              title="删除"
-              aria-label="删除明日条目"
+              title={t.pages.review.titleRemove}
+              aria-label={t.pages.review.ariaRemoveTopThree}
             >
               <X className="h-3 w-3" />
             </button>
@@ -342,7 +346,7 @@ function TopThreeList({ rows, onChange, disabled }: TopThreeListProps): React.Re
         className="inline-flex items-center gap-1 rounded-md border border-dashed border-line bg-base px-2 py-1 text-xs text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
       >
         <Plus className="h-3 w-3" aria-hidden="true" />
-        添加条目
+        {t.pages.review.addTopThree}
       </button>
     </div>
   );
@@ -367,6 +371,7 @@ function AIDraftPanel({
   onRegenerate,
   onDiscard,
 }: AIDraftPanelProps): React.ReactElement {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const hasDraft = draft !== null;
 
@@ -389,13 +394,13 @@ function AIDraftPanel({
       >
         <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
           <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-          AI 草稿
+          {t.pages.review.aiDraft}
           {hasDraft ? (
             <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent">
-              1 份未处理
+              {t.pages.review.aiDraftCount(1)}
             </span>
           ) : (
-            <span className="text-xs text-secondary">（无）</span>
+            <span className="text-xs text-secondary">{t.pages.review.aiDraftNone}</span>
           )}
         </span>
         {open ? (
@@ -410,17 +415,17 @@ function AIDraftPanel({
           {hasDraft ? (
             <div className="space-y-2 text-xs">
               <div>
-                <span className="text-secondary">完成：</span>
+                <span className="text-secondary">{t.pages.review.aiDraftCompletedLabel}</span>
                 <ul className="ml-4 list-disc text-primary">
-                  {draft.completed.map((t, i) => (
+                  {draft.completed.map((tt, i) => (
                     <li key={i} data-testid={`review-ai-draft-completed-${i}`}>
-                      {t}
+                      {tt}
                     </li>
                   ))}
                 </ul>
               </div>
               <div>
-                <span className="text-secondary">未完成：</span>
+                <span className="text-secondary">{t.pages.review.aiDraftUncompletedLabel}</span>
                 <ul className="ml-4 list-disc text-primary">
                   {draft.uncompleted.map((u, i) => (
                     <li key={i} data-testid={`review-ai-draft-uncompleted-${i}`}>
@@ -433,17 +438,17 @@ function AIDraftPanel({
                 </ul>
               </div>
               <div>
-                <span className="text-secondary">阻塞：</span>
+                <span className="text-secondary">{t.pages.review.aiDraftBlockersLabel}</span>
                 <p className="ml-4 text-primary" data-testid="review-ai-draft-blockers">
-                  {draft.blockers || '（无）'}
+                  {draft.blockers || t.pages.review.aiDraftNone}
                 </p>
               </div>
               <div>
-                <span className="text-secondary">明日 3 件事：</span>
+                <span className="text-secondary">{t.pages.review.aiDraftTopThreeLabel}</span>
                 <ul className="ml-4 list-decimal text-primary">
-                  {draft.topThree.map((t, i) => (
+                  {draft.topThree.map((tt, i) => (
                     <li key={i} data-testid={`review-ai-draft-topthree-${i}`}>
-                      {t}
+                      {tt}
                     </li>
                   ))}
                 </ul>
@@ -456,7 +461,7 @@ function AIDraftPanel({
                   disabled={loading}
                   className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-inverse transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
-                  采纳并填充到上方 4 段
+                  {t.pages.review.aiDraftAccept}
                 </button>
                 <button
                   type="button"
@@ -470,7 +475,7 @@ function AIDraftPanel({
                   ) : (
                     <Sparkles className="h-3 w-3" aria-hidden="true" />
                   )}
-                  重新生成
+                  {t.pages.review.aiDraftRegenerate}
                 </button>
                 <button
                   type="button"
@@ -480,13 +485,13 @@ function AIDraftPanel({
                   className="inline-flex items-center gap-1 rounded-md border border-line bg-base px-3 py-1.5 text-xs text-secondary transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
                 >
                   <Trash2 className="h-3 w-3" aria-hidden="true" />
-                  丢弃
+                  {t.pages.review.aiDraftDiscard}
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs text-secondary">还没有 AI 草稿。点“生成”拿一份草稿。</p>
+              <p className="text-xs text-secondary">{t.pages.review.aiDraftEmpty}</p>
               <button
                 type="button"
                 data-testid="review-ai-draft-regenerate"
@@ -499,7 +504,7 @@ function AIDraftPanel({
                 ) : (
                   <Sparkles className="h-3 w-3" aria-hidden="true" />
                 )}
-                生成 AI 草稿
+                {t.pages.review.aiDraftGenerate}
               </button>
             </div>
           )}
@@ -514,6 +519,7 @@ function AIDraftPanel({
 // ============================================================
 
 export default function ReviewPage(): React.ReactElement {
+  const t = useT();
   // store
   const current = useReviewStore((s) => s.current);
   const currentDate = useReviewStore((s) => s.currentDate);
@@ -609,7 +615,7 @@ export default function ReviewPage(): React.ReactElement {
 
   async function handleGenerate(): Promise<void> {
     if (!aiProvider) {
-      toast.error('未配置 AI provider，请到 AI 工作区设置');
+      toast.error(t.settings.sections.ai);
       return;
     }
     await generateDraft(date, aiProvider, aiModel || undefined);
@@ -619,15 +625,15 @@ export default function ReviewPage(): React.ReactElement {
     <div className="space-y-3 p-6" data-testid="review-page">
       {/* 顶部：日期选择 + 切换 + 加载最近 */}
       <header className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-2xl font-semibold text-primary">每日复盘</h1>
+        <h1 className="mr-2 text-2xl font-semibold text-primary">{t.pages.review.title}</h1>
         <button
           type="button"
           data-testid="review-prev-day"
           onClick={handlePrevDay}
           disabled={loading}
           className="rounded-md border border-line bg-elevated p-1.5 text-secondary transition-colors hover:text-primary disabled:opacity-50"
-          aria-label="前一天"
-          title="前一天"
+          aria-label={t.pages.review.prevDay}
+          title={t.pages.review.prevDay}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -648,8 +654,8 @@ export default function ReviewPage(): React.ReactElement {
           onClick={handleNextDay}
           disabled={loading}
           className="rounded-md border border-line bg-elevated p-1.5 text-secondary transition-colors hover:text-primary disabled:opacity-50"
-          aria-label="后一天"
-          title="后一天"
+          aria-label={t.pages.review.nextDay}
+          title={t.pages.review.nextDay}
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -660,7 +666,7 @@ export default function ReviewPage(): React.ReactElement {
           disabled={loading}
           className="rounded-md border border-line bg-elevated px-2 py-1 text-xs text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
         >
-          今天
+          {t.pages.review.today}
         </button>
         <button
           type="button"
@@ -669,7 +675,7 @@ export default function ReviewPage(): React.ReactElement {
           disabled={loading}
           className="ml-auto rounded-md border border-line bg-elevated px-2 py-1 text-xs text-secondary transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
         >
-          {showRecent ? '隐藏最近 30 天' : '加载最近 30 天'}
+          {showRecent ? t.pages.review.recent : t.pages.review.recent}
         </button>
       </header>
 
@@ -678,10 +684,10 @@ export default function ReviewPage(): React.ReactElement {
           data-testid="review-recent-section"
           className="rounded-lg border border-line bg-elevated p-2"
         >
-          <h2 className="px-2 py-1 text-sm font-medium text-primary">最近 30 天</h2>
+          <h2 className="px-2 py-1 text-sm font-medium text-primary">{t.pages.review.recent}</h2>
           {recent.length === 0 ? (
             <p className="px-2 py-3 text-xs text-secondary" data-testid="review-recent-empty">
-              还没有历史复盘。完成今天的复盘后会自动出现在这里。
+              {t.empty.reviewRecent.description}
             </p>
           ) : (
             <ul className="divide-y divide-line">
@@ -721,7 +727,7 @@ export default function ReviewPage(): React.ReactElement {
         className="rounded-lg border border-line bg-elevated p-3"
         data-testid="review-section-completed"
       >
-        <h2 className="mb-2 text-sm font-medium text-primary">今天完成</h2>
+        <h2 className="mb-2 text-sm font-medium text-primary">{t.pages.review.completed}</h2>
         <CompletedList rows={completed} onChange={setCompleted} disabled={saving || loading} />
       </section>
 
@@ -729,7 +735,7 @@ export default function ReviewPage(): React.ReactElement {
         className="rounded-lg border border-line bg-elevated p-3"
         data-testid="review-section-uncompleted"
       >
-        <h2 className="mb-2 text-sm font-medium text-primary">未完成</h2>
+        <h2 className="mb-2 text-sm font-medium text-primary">{t.pages.review.uncompleted}</h2>
         <UncompletedList
           rows={uncompleted}
           onChange={setUncompleted}
@@ -741,7 +747,7 @@ export default function ReviewPage(): React.ReactElement {
         className="rounded-lg border border-line bg-elevated p-3"
         data-testid="review-section-blockers"
       >
-        <h2 className="mb-2 text-sm font-medium text-primary">阻塞</h2>
+        <h2 className="mb-2 text-sm font-medium text-primary">{t.pages.review.blockers}</h2>
         <textarea
           data-testid="review-blockers-input"
           value={blockers}
@@ -749,7 +755,7 @@ export default function ReviewPage(): React.ReactElement {
           disabled={saving || loading}
           maxLength={4096}
           rows={3}
-          placeholder="今天的阻塞（可选）"
+          placeholder={t.pages.review.blockers}
           className="w-full rounded-md border border-line bg-base px-2 py-1 text-sm text-primary outline-none focus:border-accent"
         />
       </section>
@@ -758,7 +764,7 @@ export default function ReviewPage(): React.ReactElement {
         className="rounded-lg border border-line bg-elevated p-3"
         data-testid="review-section-topthree"
       >
-        <h2 className="mb-2 text-sm font-medium text-primary">明天三件事</h2>
+        <h2 className="mb-2 text-sm font-medium text-primary">{t.pages.review.topThree}</h2>
         <TopThreeList rows={topThree} onChange={setTopThree} disabled={saving || loading} />
       </section>
 
@@ -781,7 +787,7 @@ export default function ReviewPage(): React.ReactElement {
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
           <Save className="h-3.5 w-3.5" aria-hidden="true" />
-          保存
+          {t.pages.review.save}
         </button>
       </div>
     </div>

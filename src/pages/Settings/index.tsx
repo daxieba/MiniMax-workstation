@@ -50,6 +50,7 @@ import {
   FileText,
   FolderOpen,
   HardDrive,
+  Languages,
   Loader2,
   RefreshCw,
   Settings as SettingsIcon,
@@ -58,6 +59,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { LanguageSwitcher } from '@/components/LanguageSwitcher/LanguageSwitcher';
+import { useT } from '@/i18n';
 import { useAiStore } from '@/store/aiStore';
 import { useBackupStore } from '@/store/backupStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -292,6 +295,7 @@ void useThemeStoreSafely;
 // ============================================================
 
 export default function SettingsPage(): React.ReactElement {
+  const t = useT();
   const navigate = useNavigate();
   const { mode: themeMode, cycle: cycleTheme } = useThemeCycle();
 
@@ -586,8 +590,8 @@ export default function SettingsPage(): React.ReactElement {
   return (
     <section className="flex h-full flex-col">
       <header className="border-b border-line bg-elevated/40 px-6 py-4">
-        <h1 className="text-2xl font-semibold text-primary">设置</h1>
-        <p className="text-sm text-secondary">外观、AI、备份、数据管理。</p>
+        <h1 className="text-2xl font-semibold text-primary">{t.pages.settings.title}</h1>
+        <p className="text-sm text-secondary">{t.settings.sections.appearance} · {t.settings.sections.ai} · {t.settings.sections.backup}</p>
       </header>
 
       <div className="flex-1 overflow-auto">
@@ -609,14 +613,14 @@ export default function SettingsPage(): React.ReactElement {
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
               <SettingsIcon className="h-4 w-4" aria-hidden="true" />
-              外观
+              {t.settings.sections.appearance}
             </h2>
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-primary">主题</span>
+                <span className="text-primary">{t.settings.sections.appearance}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-secondary">
-                    当前：{themeMode === 'system' ? '跟随系统' : themeMode === 'dark' ? '深色' : '浅色'}
+                    {themeMode === 'system' ? t.settings.theme.system : themeMode === 'dark' ? t.settings.theme.dark : t.settings.theme.light}
                   </span>
                   <button
                     type="button"
@@ -624,12 +628,12 @@ export default function SettingsPage(): React.ReactElement {
                     onClick={cycleTheme}
                     className="rounded-md border border-line bg-elevated px-3 py-1 text-xs text-primary transition-colors hover:border-accent hover:text-accent"
                   >
-                    切换
+                    {t.common.confirm}
                   </button>
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-primary">数据目录</span>
+                <span className="text-primary">{t.pages.settings.title}</span>
                 <div className="flex items-center gap-2">
                   <span
                     data-testid="settings-db-basename"
@@ -645,10 +649,25 @@ export default function SettingsPage(): React.ReactElement {
                     className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-2 py-1 text-xs text-primary transition-colors hover:border-accent hover:text-accent"
                   >
                     <Copy className="h-3 w-3" aria-hidden="true" />
-                    复制路径
+                    {t.common.search}
                   </button>
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* ====== Section 1.5: 语言 (v0.1.2) ====== */}
+          <section
+            data-testid="settings-section-language"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <Languages className="h-4 w-4" aria-hidden="true" />
+              {t.settings.sections.language}
+            </h2>
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-primary">{t.settings.language.label}</span>
+              <LanguageSwitcher testId="settings-language-switcher" />
             </div>
           </section>
 

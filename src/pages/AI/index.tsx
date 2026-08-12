@@ -36,6 +36,7 @@ import { AIPendingConfirm } from '@/components/AIPendingConfirm/AIPendingConfirm
 import { AIProviderPicker } from '@/components/AIProviderPicker/AIProviderPicker';
 import { AIQuickAction } from '@/components/AIQuickAction/AIQuickAction';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { useT } from '@/i18n';
 import type { JsonExtractionSchemaName } from '@shared/types/ai';
 import type { PendingResult, QuickAction } from '@/store/aiStore';
 import { useAiStore } from '@/store/aiStore';
@@ -49,16 +50,6 @@ interface TabConfig {
   Icon: LucideIcon;
 }
 
-const TABS: ReadonlyArray<TabConfig> = [
-  { key: 'chat', label: '对话', Icon: MessageSquare },
-  { key: 'summarize', label: '总结', Icon: Sparkles },
-  { key: 'extract_tasks', label: '提取任务', Icon: ClipboardList },
-  { key: 'extract_inbox', label: '提取 inbox', Icon: Inbox },
-  { key: 'rewrite', label: '改写', Icon: PenLine },
-  { key: 'note_summary', label: 'AI 摘要笔记', Icon: FileText },
-  { key: 'pending', label: '待确认', Icon: Inbox },
-];
-
 /** T3-4 + T4-3：结构化 tab → (action, schemaName) 映射。 */
 const STRUCTURED_TAB_CONFIG: Record<
   'extract_tasks' | 'extract_inbox' | 'note_summary',
@@ -71,6 +62,19 @@ const STRUCTURED_TAB_CONFIG: Record<
 
 /** 默认页。 */
 export default function AIPage(): React.ReactElement {
+  const t = useT();
+  const TABS = useMemo<ReadonlyArray<TabConfig>>(
+    () => [
+      { key: 'chat', label: t.pages.ai.tabs.chat, Icon: MessageSquare },
+      { key: 'summarize', label: t.pages.ai.tabs.summarize, Icon: Sparkles },
+      { key: 'extract_tasks', label: t.pages.ai.tabs.extractTasks, Icon: ClipboardList },
+      { key: 'extract_inbox', label: t.pages.ai.tabs.extractInbox, Icon: Inbox },
+      { key: 'rewrite', label: t.pages.ai.tabs.rewrite, Icon: PenLine },
+      { key: 'note_summary', label: t.pages.ai.tabs.noteSummary, Icon: FileText },
+      { key: 'pending', label: t.pages.ai.tabs.pending, Icon: Inbox },
+    ],
+    [t],
+  );
   // ---- store 订阅 ----
   const providers = useAiStore((s) => s.providers);
   const provider = useAiStore((s) => s.provider);
@@ -123,7 +127,7 @@ export default function AIPage(): React.ReactElement {
   }, [provider, refreshHasKey, loadConfig]);
 
   // ---- 派生 ----
-  const currentTabConfig = useMemo(() => TABS.find((t) => t.key === tab) ?? TABS[0]!, [tab]);
+  const currentTabConfig = useMemo(() => TABS.find((tt) => tt.key === tab) ?? TABS[0]!, [tab, TABS]);
   const pendingCount = useMemo(
     () => pendingResults.filter((p) => p.status === 'pending').length,
     [pendingResults],
@@ -168,7 +172,7 @@ export default function AIPage(): React.ReactElement {
     <section data-testid="ai-page" className="flex h-full flex-col gap-3 p-4">
       {/* 顶部：provider + model + key + test */}
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold text-primary">AI 工作区</h1>
+        <h1 className="text-xl font-semibold text-primary">{t.pages.ai.title}</h1>
         <AIProviderPicker
           providers={providers}
           provider={provider}
@@ -251,7 +255,7 @@ export default function AIPage(): React.ReactElement {
               messages={messages}
               loading={loading}
               disabled={!hasKey}
-              placeholder={hasKey ? '输入消息…' : '请先在上方设置 API Key'}
+              placeholder={hasKey ? t.pages.ai.placeholderChat : t.pages.ai.placeholderNoKey}
               onSend={(content) => void sendMessage(content)}
               onCancel={() => cancelChat()}
             />
@@ -298,13 +302,13 @@ export default function AIPage(): React.ReactElement {
             onClick={() => clearMessages()}
             className="rounded-md border border-line bg-elevated px-3 py-1 text-xs text-secondary transition-colors hover:text-danger"
           >
-            清空对话
+            {t.pages.ai.clearChat}
           </button>
         </div>
       ) : null}
 
       {/* 当前 tab 提示（仅调试信息友好） */}
-      <p className="sr-only">当前 tab: {currentTabConfig.label}</p>
+      <p className="sr-only">{t.pages.ai.currentTab(currentTabConfig.label)}</p>
     </section>
   );
 }
@@ -319,12 +323,13 @@ function PendingList({
   onConfirm: (id: string) => void;
   onDismiss: (id: string) => void;
 }): React.ReactElement {
+  const t = useT();
   if (items.length === 0) {
     return (
       <EmptyState
         icon={Inbox}
-        title="待确认区为空"
-        description="运行 summarize / extract_tasks / extract_inbox / rewrite 后，结果会出现在这里等你的采纳。"
+        title={t.empty.aiPending.title}
+        description={t.empty.aiPending.description}
         data-testid="ai-pending-empty"
       />
     );

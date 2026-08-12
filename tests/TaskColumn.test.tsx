@@ -167,6 +167,6 @@ describe('TaskColumn (v0.1.1 拖拽)', () => {
     const dt = makeDataTransfer({ [TASK_DRAG_MIME]: '01HXYZ' });
     // dragEnter 触发 isDragOver
     fireEvent.dragEnter(column, { dataTransfer: dt });
-    expect(screen.getByTestId('task-column-empty-todo').textContent).toContain('松开放到这里');
+    expect(screen.getByTestId('task-column-empty-todo').textContent).toContain('松开鼠标');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * 收集箱列表组件（T2-2 + v0.1.1 polish）
+ * 收集箱列表组件（T2-2 + v0.1.1 polish + v0.1.2 i18n）
  *
  * 渲染当前过滤下的 items，每个调 InboxItem 子组件。
  *
@@ -9,14 +9,13 @@
  *
  * **空态**（v0.1.1）：用 EmptyState 通用组件，比纯文字更有引导。
  *
- * **不做**：
- *   - 不做分页 / 无限滚动（第一版数据量小；如需后续卡加）
- *   - 不做多选 / 批量操作
+ * **v0.1.2 i18n**：empty 状态文案从 useT() 派生；确认弹窗从 actions 命名空间。
  */
 
 import { Inbox } from 'lucide-react';
 import { InboxItem } from '@/components/InboxItem/InboxItem';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { useT } from '@/i18n';
 import type { InboxItem as InboxItemData } from '@shared/types/inbox';
 
 export interface InboxListProps {
@@ -37,30 +36,18 @@ export interface InboxListProps {
   onFocusComposer?: () => void;
 }
 
-const EMPTY_COPY: Record<'active' | 'archived' | 'all', { title: string; description: string; cta: string }> = {
-  active: {
-    title: '收件箱是空的',
-    description: '随手把想法 / 任务 / 链接丢进来，AI 帮你识别结构化。也可以拖文件到窗口。',
-    cta: '录入第一条',
-  },
-  archived: {
-    title: '没有已归档的项',
-    description: '归档的收集项会出现在这里，方便回查。',
-    cta: '回到活跃项',
-  },
-  all: {
-    title: '收件箱空空如也',
-    description: '从录入第一条开始 —— 想到什么就记什么。',
-    cta: '录入第一条',
-  },
-};
-
 /**
  * 收集箱列表。
  */
 export function InboxList({ items, onArchive, onConvert, filter, onFocusComposer }: InboxListProps): React.ReactElement {
+  const t = useT();
   if (items.length === 0) {
-    const copy = EMPTY_COPY[filter];
+    const copy =
+      filter === 'active'
+        ? t.empty.inboxActive
+        : filter === 'archived'
+          ? t.empty.inboxArchived
+          : t.empty.inboxAll;
     // 永远显示 CTA —— onFocusComposer 缺失时给 noop（button 仍渲染，文案仍展示）
     const handleAction = (): void => {
       onFocusComposer?.();
@@ -79,8 +66,8 @@ export function InboxList({ items, onArchive, onConvert, filter, onFocusComposer
   const handleConvert = (id: string): void => {
     // 转换是不可逆操作（会写一条 task + 改 inbox 状态）→ 必须确认
     const item = items.find((it) => it.id === id);
-    const summary = item ? truncate(item.content, 60) : '这条收集项';
-    const ok = window.confirm(`确认将 "${summary}" 转成任务吗？\n\n（会写入一条新任务，收集项标记为已转换。）`);
+    const summary = item ? truncate(item.content, 60) : '';
+    const ok = window.confirm(t.actions.convertConfirm(summary));
     if (ok) onConvert(id);
   };
 
