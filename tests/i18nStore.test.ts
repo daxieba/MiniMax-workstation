@@ -1,20 +1,20 @@
 /**
- * i18n store 测试（v0.1.2）
+ * i18n store 测试（v0.1.2 + v0.1.3）
  *
  * 覆盖：
- *   - 默认 lang 检测（zh-CN / en-US / 其他 → zh-CN）
+ *   - 默认 lang 检测（zh-CN / zh-TW / en-US / 其他 → zh-CN）
  *   - localStorage 持久化
  *   - setLang 切换 + 持久化
  *   - translations 跟 lang 对应
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useI18nStore, type Lang } from '@/store/i18nStore';
-import { translations } from '@/i18n';
+import { useI18nStore } from '@/store/i18nStore';
+import { translations, type Lang } from '@/i18n';
 
 const STORAGE_KEY = 'minimax.workstation.lang';
 
-describe('i18nStore', () => {
+describe('i18nStore (v0.1.3)', () => {
   beforeEach(() => {
     localStorage.clear();
     // 重置 store（每个 test 独立）
@@ -27,8 +27,6 @@ describe('i18nStore', () => {
 
   it('默认 lang 是 zh-CN（localStorage 空 + navigator.language 是 en）', () => {
     vi.stubGlobal('navigator', { language: 'en-US' });
-    // 新建一个 fresh store 调用场景
-    // 简化：直接验证当前 store 在 navigator=en 时仍能切到 en-US
     useI18nStore.getState().setLang('en-US');
     expect(useI18nStore.getState().lang).toBe('en-US');
     vi.unstubAllGlobals();
@@ -49,10 +47,17 @@ describe('i18nStore', () => {
     expect(useI18nStore.getState().t).toBe(translations['zh-CN']);
   });
 
+  it('v0.1.3: setLang 切到 zh-TW（繁体）并持久化', () => {
+    useI18nStore.getState().setLang('zh-TW');
+    expect(useI18nStore.getState().lang).toBe('zh-TW');
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('zh-TW');
+    expect(useI18nStore.getState().t).toBe(translations['zh-TW']);
+    // 验证繁体：sidebar.inbox = "收件箱"
+    expect(useI18nStore.getState().t.sidebar.inbox).toBe('收件箱');
+  });
+
   it('localStorage 已有值时，store 读取该值', () => {
     localStorage.setItem(STORAGE_KEY, 'en-US');
-    // 模拟 store 启动期从 localStorage 读取：直接 read 函数（在 store 实现里）
-    // 这里通过 setState 验证 lang 字段
     const stored = localStorage.getItem(STORAGE_KEY) as Lang | null;
     useI18nStore.setState({ lang: stored ?? 'zh-CN', t: translations[stored ?? 'zh-CN'] });
     expect(useI18nStore.getState().lang).toBe('en-US');
@@ -65,8 +70,9 @@ describe('i18nStore', () => {
     expect(useI18nStore.getState().t.sidebar.inbox).toBe('收集箱');
   });
 
-  it('translations 表完整覆盖 zh-CN 和 en-US', () => {
+  it('translations 表完整覆盖 zh-CN / zh-TW / en-US', () => {
     expect(translations['zh-CN']).toBeDefined();
+    expect(translations['zh-TW']).toBeDefined();
     expect(translations['en-US']).toBeDefined();
     // 一些核心 key 必须同时存在
     const required: Array<keyof typeof translations['zh-CN']> = [
@@ -83,7 +89,29 @@ describe('i18nStore', () => {
     ];
     for (const k of required) {
       expect(translations['zh-CN'][k]).toBeDefined();
+      expect(translations['zh-TW'][k]).toBeDefined();
       expect(translations['en-US'][k]).toBeDefined();
+    }
+  });
+
+  it('zh-TW 至少有几个明显的台湾术语', () => {
+    // 收集箱 → 收件箱 (台湾习惯)
+    expect(translations['zh-TW'].sidebar.inbox).toBe('收件箱');
+    expect(translations['zh-TW'].pages.inbox.kindFile).toBe('檔案');
+    // 设置 → 設定
+    expect(translations['zh-TW'].sidebar.settings).toBe('設定');
+  });
+
+  it('v0.1.3 新增 pages.calendar / pomodoro / stats 在三种语言都存在', () => {
+    for (const lang of ['zh-CN', 'zh-TW', 'en-US'] as const) {
+      const t = translations[lang];
+      expect(t.pages.calendar).toBeDefined();
+      expect(t.pages.pomodoro).toBeDefined();
+      expect(t.pages.stats).toBeDefined();
+      // 三大页 title
+      expect(t.pages.calendar.title.length).toBeGreaterThan(0);
+      expect(t.pages.pomodoro.title.length).toBeGreaterThan(0);
+      expect(t.pages.stats.title.length).toBeGreaterThan(0);
     }
   });
 });

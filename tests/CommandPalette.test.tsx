@@ -12,6 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type * as ReactRouterDom from 'react-router-dom';
 
 import { CommandPalette, buildCommands } from '@/components/CommandPalette/CommandPalette';
 import { translations, useI18nStore, type Translations } from '@/i18n';
@@ -20,7 +21,7 @@ import { useCmdPaletteStore } from '@/store/cmdPaletteStore';
 const mockNavigate = vi.fn();
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  const actual = await vi.importActual<typeof ReactRouterDom>('react-router-dom');
   return {
     ...actual,
     useNavigate: () => mockNavigate,

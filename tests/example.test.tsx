@@ -14,7 +14,7 @@ import App from '@/App';
  *   - 路径不匹配时 fallback 到 Overview
  */
 describe('App', () => {
-  it('renders the workspace title and sidebar with 7 nav items', () => {
+  it('renders the workspace title and sidebar with 11 nav items (v0.1.3 +bookmarks)', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
@@ -25,14 +25,18 @@ describe('App', () => {
 
     const sidebar = screen.getByTestId('sidebar');
     const items = within(sidebar).getAllByRole('link');
-    expect(items).toHaveLength(7);
+    expect(items).toHaveLength(11);
     expect(items[0]).toHaveTextContent('总览');
     expect(items[1]).toHaveTextContent('收集箱');
     expect(items[2]).toHaveTextContent('项目与任务');
-    expect(items[3]).toHaveTextContent('AI 工作区');
-    expect(items[4]).toHaveTextContent('知识库');
-    expect(items[5]).toHaveTextContent('每日复盘');
-    expect(items[6]).toHaveTextContent('设置');
+    expect(items[3]).toHaveTextContent('知识库');
+    expect(items[4]).toHaveTextContent('每日复盘');
+    expect(items[5]).toHaveTextContent('AI 工作区');
+    expect(items[6]).toHaveTextContent('日历');
+    expect(items[7]).toHaveTextContent('番茄钟');
+    expect(items[8]).toHaveTextContent('统计');
+    expect(items[9]).toHaveTextContent('书签');
+    expect(items[10]).toHaveTextContent('设置');
   });
 
   it('overview page renders when path is /', () => {

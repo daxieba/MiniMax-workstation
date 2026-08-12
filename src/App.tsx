@@ -15,6 +15,10 @@ import AIPage from '@/pages/AI';
 import KnowledgePage from '@/pages/Knowledge';
 import ReviewPage from '@/pages/Review';
 import SettingsPage from '@/pages/Settings';
+import CalendarPage from '@/pages/Calendar';
+import PomodoroPage from '@/pages/Pomodoro';
+import StatsPage from '@/pages/Stats';
+import BookmarksPage from '@/pages/Bookmarks';
 
 /**
  * 应用根组件。
@@ -72,6 +76,10 @@ export default function App(): React.ReactElement {
             <Route path="/ai" element={<AIPage />} />
             <Route path="/knowledge" element={<KnowledgePage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/pomodoro" element={<PomodoroPage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/bookmarks" element={<BookmarksPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -17,8 +17,9 @@ export interface LanguageSwitcherProps {
   testId?: string;
 }
 
-const LANGS: ReadonlyArray<{ value: Lang; key: 'zhCN' | 'enUS' }> = [
+const LANGS: ReadonlyArray<{ value: Lang; key: 'zhCN' | 'zhTW' | 'enUS' }> = [
   { value: 'zh-CN', key: 'zhCN' },
+  { value: 'zh-TW', key: 'zhTW' },
   { value: 'en-US', key: 'enUS' },
 ];
 

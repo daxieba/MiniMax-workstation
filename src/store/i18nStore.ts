@@ -15,28 +15,28 @@ import { create } from 'zustand';
 
 import enUS from '@/i18n/en-US';
 import zhCN from '@/i18n/zh-CN';
+import zhTW from '@/i18n/zh-TW';
 import type { Translations } from '@/i18n/zh-CN';
+import type { Lang } from '@/i18n';
 
-export type { Lang } from '@/i18n';
-
-const TRANSLATIONS: Record<'zh-CN' | 'en-US', Translations> = {
+const TRANSLATIONS: Record<Lang, Translations> = {
   'zh-CN': zhCN,
+  'zh-TW': zhTW,
   'en-US': enUS,
 };
-
-type Lang = keyof typeof TRANSLATIONS;
 
 const STORAGE_KEY = 'minimax.workstation.lang';
 const DEFAULT_LANG: Lang = 'zh-CN';
 
 /**
  * 检测浏览器语言 → 决定默认 lang。
- * 浏览器可能是 `zh-CN` / `zh` / `en-US` / `en` / 其他。
+ * 浏览器可能是 `zh-CN` / `zh-TW` / `zh-HK` / `zh` / `en-US` / `en` / 其他。
  * 只在用户没显式选过时调用。
  */
 function detectBrowserLang(): Lang {
   if (typeof navigator === 'undefined') return DEFAULT_LANG;
   const lang = navigator.language?.toLowerCase() ?? '';
+  if (lang.startsWith('zh-tw') || lang.startsWith('zh-hk') || lang.startsWith('zh-mo')) return 'zh-TW';
   if (lang.startsWith('zh')) return 'zh-CN';
   if (lang.startsWith('en')) return 'en-US';
   return DEFAULT_LANG;
@@ -46,7 +46,7 @@ function detectBrowserLang(): Lang {
 function readStoredLang(): Lang | null {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    if (v === 'zh-CN' || v === 'en-US') return v;
+    if (v === 'zh-CN' || v === 'zh-TW' || v === 'en-US') return v;
   } catch {
     // ignore
   }

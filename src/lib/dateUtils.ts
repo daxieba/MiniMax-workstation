@@ -93,3 +93,117 @@ export function relativeTime(value: number | Date): string {
   const days = Math.floor(diff / MS_PER_DAY);
   return `${days} 天前`;
 }
+
+// ============================================================
+//  v0.1.3 增强：日历 / 番茄钟 / 统计用
+// ============================================================
+
+/**
+ * 加 / 减天数（返回新 Date）。
+ *
+ * @param d 基准日期
+ * @param n 天数（负数 = 减）
+ * @returns 新 Date 实例
+ */
+export function addDays(d: Date, n: number): Date {
+  const x = new Date(d.getTime());
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+/**
+ * 加 / 减月（返回新 Date；月末 day 自动 clamp）。
+ *
+ * @param d 基准日期
+ * @param n 月数（负数 = 减）
+ */
+export function addMonths(d: Date, n: number): Date {
+  const x = new Date(d.getTime());
+  const targetMonth = x.getMonth() + n;
+  x.setMonth(targetMonth);
+  // 如果 setMonth 溢出（例如 1/31 + 1 月 = 3/03 in JS），已经自动 clamp 到目标月
+  return x;
+}
+
+/** 当月 1 号 00:00。 */
+export function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+/** 当月最后一天 23:59:59.999。 */
+export function endOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+/**
+ * 所在周的周日开始（00:00）。
+ * 注意：周日开始 = 美国习惯；如果将来要改成周一开始，把 0 换成 1。
+ */
+export function startOfWeek(d: Date): Date {
+  return startOfDayLocal(addDays(d, -d.getDay()));
+}
+
+/** 所在周的周六结束（23:59:59.999）。 */
+export function endOfWeek(d: Date): Date {
+  return endOfDayLocal(addDays(d, 6 - d.getDay()));
+}
+
+/** 当天 00:00:00.000（返回 Date）。 */
+export function startOfDayLocal(d: Date): Date {
+  const x = new Date(d.getTime());
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+/** 当天 23:59:59.999（返回 Date）。 */
+export function endOfDayLocal(d: Date): Date {
+  const x = new Date(d.getTime());
+  x.setHours(23, 59, 59, 999);
+  return x;
+}
+
+/** 是否同年同月同日。 */
+export function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** 是否同年同月。 */
+export function isSameMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+/**
+ * 简易日期格式化。
+ * 模式：
+ *   - `yyyy` 4 位年
+ *   - `yy`   2 位年
+ *   - `MM`   2 位月
+ *   - `M`    月（无前导 0）
+ *   - `dd`   2 位日
+ *   - `d`    日
+ *   - `HH`   2 位小时（24）
+ *   - `mm`   2 位分钟
+ *   - `MMM`  短月名（en：Jan/Feb/…；zh：1 月/2 月/…）
+ */
+export function format(d: Date, pattern: string): string {
+  const yyyy = String(d.getFullYear());
+  const yy = yyyy.slice(-2);
+  const M = d.getMonth() + 1;
+  const MM = String(M).padStart(2, '0');
+  const day = d.getDate();
+  const dd = String(day).padStart(2, '0');
+  const HH = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  // 用一组中性的月份短名；上层 i18n 通过传入 pattern 控制
+  const MMM_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return pattern
+    .replace(/yyyy/g, yyyy)
+    .replace(/yy/g, yy)
+    .replace(/MMM/g, MMM_EN[M - 1] ?? '???')
+    .replace(/MM/g, MM)
+    .replace(/M/g, String(M))
+    .replace(/dd/g, dd)
+    .replace(/d/g, String(day))
+    .replace(/HH/g, HH)
+    .replace(/mm/g, mm);
+}

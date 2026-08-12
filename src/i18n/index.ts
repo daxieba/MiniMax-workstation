@@ -19,17 +19,20 @@
  */
 import enUS from './en-US';
 import zhCN from './zh-CN';
+import zhTW from './zh-TW';
 import type { Translations } from './zh-CN';
 
 import { useI18nStore } from '@/store/i18nStore';
 
 export { default as zhCN } from './zh-CN';
+export { default as zhTW } from './zh-TW';
 export { default as enUS } from './en-US';
 export type { Translations } from './zh-CN';
 export { useI18nStore } from '@/store/i18nStore';
 
 export const translations = {
   'zh-CN': zhCN,
+  'zh-TW': zhTW,
   'en-US': enUS,
 };
 

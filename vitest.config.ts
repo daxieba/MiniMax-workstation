@@ -26,8 +26,10 @@ export default defineConfig({
     // - pool: 'forks'   fork 子进程跑测试（threads 在 Windows 上共享 OS keyring 句柄不稳）
     // - isolate: true   每个测试文件独立子进程，彻底隔离全局状态
     // - fileParallelism: false  文件之间串行跑，避免 set/has/get/delete 互踩
+    // v0.1.3: 测试数涨到 1056+，maxWorkers 限制为 2 避免 OOM（v0.1.2 是 4）。
     pool: 'forks',
     isolate: true,
     fileParallelism: false,
+    maxWorkers: 2,
   },
 });

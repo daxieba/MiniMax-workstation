@@ -21,7 +21,20 @@ import { useCmdPaletteStore } from '@/store/cmdPaletteStore';
 import { toast } from '@/store/toastStore';
 
 // sidebar 顺序（必须与 Sidebar.tsx navItems 一致）
-const SIDEBAR_PATHS = ['/', '/inbox', '/projects', '/ai', '/knowledge', '/review', '/settings'] as const;
+// 主导航 1-6 + 工具 7-10（calendar/pomodoro/stats/bookmarks）+ 系统 Shift+0 (settings)
+const SIDEBAR_PATHS = [
+  '/',           // 1 overview
+  '/inbox',      // 2 inbox
+  '/projects',   // 3 projects
+  '/knowledge',  // 4 knowledge
+  '/review',     // 5 review
+  '/ai',         // 6 ai
+  '/calendar',   // 7 calendar
+  '/pomodoro',   // 8 pomodoro
+  '/stats',      // 9 stats
+  '/bookmarks',  // 0 bookmarks
+  '/settings',   // Shift+0 settings
+] as const;
 
 function isMac(): boolean {
   return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -99,13 +112,18 @@ export function useGlobalShortcuts(): void {
         return;
       }
 
-      // Ctrl/Cmd + 1..7
-      const digit = e.key.match(/^([1-7])$/);
+      // Ctrl/Cmd + 1..9 → 主导航 + 工具（9 项）
+      // Ctrl/Cmd + 0     → bookmarks
+      // Ctrl/Cmd + Shift + 0 → settings
+      const digit = e.key.match(/^([0-9])$/);
       if (digit) {
         // 在表单输入框里时不让快捷键切页（避免误触）
         if (isFormFieldFocused()) return;
         e.preventDefault();
-        const path = SIDEBAR_PATHS[parseInt(digit[1]!, 10) - 1];
+        const idx = parseInt(digit[1]!, 10);
+        const path = idx === 0
+          ? (e.shiftKey ? SIDEBAR_PATHS[10] : SIDEBAR_PATHS[9])
+          : SIDEBAR_PATHS[idx - 1];
         if (path) {
           navigate(path);
           toast.info(t.toasts.switchedTo(path));

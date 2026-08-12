@@ -30,6 +30,10 @@ function renderApp(initialPath = '/'): void {
             <Route path="/ai" element={<AIPage />} />
             <Route path="/knowledge" element={<div>KB</div>} />
             <Route path="/review" element={<div>Review</div>} />
+            <Route path="/calendar" element={<div>Calendar</div>} />
+            <Route path="/pomodoro" element={<div>Pomodoro</div>} />
+            <Route path="/stats" element={<div>Stats</div>} />
+            <Route path="/bookmarks" element={<div>Bookmarks</div>} />
             <Route path="/settings" element={<div>Settings</div>} />
           </Routes>
         </main>
@@ -39,21 +43,32 @@ function renderApp(initialPath = '/'): void {
 }
 
 describe('Sidebar', () => {
-  it('renders 7 navigation items with correct labels', () => {
+  it('renders 11 navigation items with correct labels (v0.1.3: +calendar/pomodoro/stats/bookmarks)', () => {
     renderApp();
     const sidebar = screen.getByTestId('sidebar');
     const items = within(sidebar).getAllByRole('link');
-    expect(items).toHaveLength(7);
+    expect(items).toHaveLength(11);
     const labels = items.map((a) => a.textContent);
     expect(labels).toEqual([
       '总览',
       '收集箱',
       '项目与任务',
-      'AI 工作区',
       '知识库',
       '每日复盘',
+      'AI 工作区',
+      '日历',
+      '番茄钟',
+      '统计',
+      '书签',
       '设置',
     ]);
+  });
+
+  it('renders 3 sidebar groups (主导航 / 工具 / 系统)', () => {
+    renderApp();
+    expect(screen.getByTestId('sidebar-group-主导航')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-group-工具')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-group-系统')).toBeInTheDocument();
   });
 
   it('highlights active item based on current pathname', () => {
