@@ -98,6 +98,8 @@ const enUS: Translations = {
       statusDoing: 'In progress',
       statusDone: 'Done',
       statusArchived: 'Archived',
+      viewKanban: 'Kanban',
+      viewList: 'List',
     },
     ai: {
       title: 'AI Workspace',

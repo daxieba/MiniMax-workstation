@@ -25,6 +25,7 @@ import { ProjectForm, type ProjectFormSubmitPayload } from '@/components/Project
 import { ProjectList } from '@/components/ProjectList/ProjectList';
 import { TaskBoard } from '@/components/TaskBoard/TaskBoard';
 import { TaskForm, type TaskFormSubmitPayload } from '@/components/TaskForm/TaskForm';
+import { TaskListView } from '@/components/TaskListView/TaskListView';
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/store/projectStore';
 import { useTaskStore } from '@/store/taskStore';
@@ -88,6 +89,25 @@ export default function ProjectsPage(): React.ReactElement {
     [t],
   );
 
+  // v0.2.0: 视图模式（看板 / 列表），localStorage 记住
+  type ViewMode = 'kanban' | 'list';
+  const VIEW_STORAGE_KEY = 'minimax.workstation.projects.view';
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try {
+      const v = localStorage.getItem(VIEW_STORAGE_KEY);
+      return v === 'kanban' ? 'kanban' : 'list';
+    } catch {
+      return 'list';
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
+    } catch {
+      // ignore
+    }
+  }, [viewMode]);
+
   // 选中的"项目"显示文案。
   const describeSelected = useCallback(
     (id: string | null | undefined, list: Project[]): string => {
@@ -115,6 +135,13 @@ export default function ProjectsPage(): React.ReactElement {
     () => projects.filter((p) => !p.archived),
     [projects],
   );
+
+  // v0.2.0: List 视图用 projectId → name 查表（避免每个 task 嵌套查找）
+  const projectNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of projects) map.set(p.id, p.name);
+    return map;
+  }, [projects]);
 
   // ====== 项目操作 ======
 
@@ -330,15 +357,61 @@ export default function ProjectsPage(): React.ReactElement {
             <p data-testid="projects-loading" className="text-xs text-secondary">{t.common.loading}</p>
           ) : null}
 
+          {/* v0.2.0: 视图模式 tab 切换（看板 / 列表） */}
+          <div
+            role="tablist"
+            aria-label="view mode"
+            data-testid="projects-view-tabs"
+            className="inline-flex shrink-0 rounded-md border border-line bg-elevated p-0.5"
+          >
+            <button
+              type="button"
+              role="tab"
+              data-testid="projects-view-kanban"
+              aria-selected={viewMode === 'kanban'}
+              onClick={() => setViewMode('kanban')}
+              className={[
+                'rounded px-3 py-1 text-xs transition-colors',
+                viewMode === 'kanban' ? 'bg-accent text-inverse' : 'text-secondary hover:text-primary',
+              ].join(' ')}
+            >
+              {t.pages.projects.viewKanban}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              data-testid="projects-view-list"
+              aria-selected={viewMode === 'list'}
+              onClick={() => setViewMode('list')}
+              className={[
+                'rounded px-3 py-1 text-xs transition-colors',
+                viewMode === 'list' ? 'bg-accent text-inverse' : 'text-secondary hover:text-primary',
+              ].join(' ')}
+            >
+              {t.pages.projects.viewList}
+            </button>
+          </div>
+
           <div className="min-h-0 flex-1">
-            <TaskBoard
-              tasks={tasks}
-              onEdit={handleEditTask}
-              onTransitionIntent={handleTaskTransitionIntent}
-              onArchive={handleArchiveTask}
-              onDelete={handleDeleteTask}
-              onDropTask={handleTaskDropped}
-            />
+            {viewMode === 'kanban' ? (
+              <TaskBoard
+                tasks={tasks}
+                onEdit={handleEditTask}
+                onTransitionIntent={handleTaskTransitionIntent}
+                onArchive={handleArchiveTask}
+                onDelete={handleDeleteTask}
+                onDropTask={handleTaskDropped}
+              />
+            ) : (
+              <TaskListView
+                tasks={tasks}
+                projectNameById={projectNameById}
+                onEdit={handleEditTask}
+                onTransitionIntent={handleTaskTransitionIntent}
+                onArchive={handleArchiveTask}
+                onDelete={handleDeleteTask}
+              />
+            )}
           </div>
         </main>
       </div>

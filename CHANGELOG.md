@@ -5,6 +5,49 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
+## [0.2.0] - 2026-08-13
+
+### Changed (minor)
+
+- **package.json / VERSION 升 0.1.0 → 0.2.0**：v0.1.x 阶段（基础打磨 + i18n + 4 大新功能）收尾，
+  v0.2.0 开启新一轮大更新。git tag 历史保留 v0.1.x。
+
+### Added
+
+- **Projects 页重构：Kanban / List 双视图**
+  - 默认 **List 视图**：「一页看全」所有任务，按 status 分组（待处理 / 进行中 / 已完成 / 已归档），
+    每组按 priority + dueDate 排序
+  - 可切到 Kanban 视图：原 4 列横排看板（保留拖拽等所有 v0.1.1 功能）
+  - 顶部 tab 切换，localStorage 记住选择
+  - List 视图支持 inline 状态流转（点 status badge → 弹菜单 → 改 status）
+  - List 视图卡片显示：项目 + 优先级 + dueDate + 标签
+
+## [0.1.3.1] - 2026-08-13
+
+### Fixed
+
+- 设置页「复制路径」按钮文案从误写的「搜索」改为「复制」（v0.1.2 i18n 化遗留）
+- 番茄钟布局间距（tab / 圆 / 按钮分离，呼吸感更舒服）
+
+## [0.1.3] - 2026-08-12
+
+### Added
+
+- **zh-TW 繁體中文**：第三套语言资源，台湾惯用词（收件箱 / 設定 / 檔案 / 連結）
+- **4 大新功能**：📅 日历 / 🍅 番茄钟 / 📊 统计 / 🔖 书签
+- Sidebar 11 项分 3 组（主导航 1-6 / 工具 7-0 / 系统 Shift+0）
+- 命令面板加 4 个新导航 + zh-TW 语言切换
+- 浏览器 detect: zh-TW / zh-HK / zh-MO → 繁體
+
+## [0.1.2] - 2026-08-12
+
+### Added
+
+- i18n 自写框架（zh-CN / en-US，~250 keys）
+- 全局命令面板（Ctrl/Cmd+Shift+P）
+- LanguageSwitcher（zh-CN / en-US）+ Ctrl/Cmd+Shift+L 切换
+- 5 大页双语化：Sidebar / Inbox / Projects / AI / Knowledge / Review / Overview
+
 ## [0.1.0.4] - 2026-08-11
 
 ### Fixed

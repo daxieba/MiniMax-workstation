@@ -103,6 +103,8 @@ const zhCN = {
       statusDoing: '进行中',
       statusDone: '已完成',
       statusArchived: '已归档',
+      viewKanban: '看板',
+      viewList: '列表',
     },
     ai: {
       title: 'AI 工作区',

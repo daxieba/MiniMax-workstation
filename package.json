@@ -1,6 +1,6 @@
 {
   "name": "minimax-workstation",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "MiniMaxCode 个人工作台 — Windows 优先、本地优先的桌面应用",
   "type": "module",

@@ -95,6 +95,8 @@ const zhTW = {
       statusDoing: '進行中',
       statusDone: '已完成',
       statusArchived: '已封存',
+      viewKanban: '看板',
+      viewList: '列表',
     },
     ai: {
       title: 'AI 工作區',
