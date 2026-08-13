@@ -217,6 +217,12 @@ function registerThemeIpc(): void {
 }
 
 app.whenReady().then(() => {
+  // v0.3.0: Windows 通知需要 AppUserModelId 才能正确归属到应用 + 显示应用名
+  // 必须在 app ready 之后、第一次 Notification 之前设置
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.MiniMax.workstation');
+  }
+
   // 默认跟随系统；渲染端启动时调用 setThemeSource 同步 localStorage 中的偏好。
   nativeTheme.themeSource = 'system';
 

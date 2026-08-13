@@ -66,6 +66,11 @@ export default function PomodoroPage(): React.ReactElement {
           toast.info(t.toasts.pomodoroBreakComplete);
         } else {
           toast.success(t.toasts.pomodoroComplete);
+          // v0.3.0: focus 完成 → 桌面通知
+          const api = (window as unknown as { api?: { app?: { notify: (i: { title: string; body?: string }) => Promise<{ ok: true; data: { shown: boolean } } | { ok: false; error: { code: string; message: string } }> } } }).api?.app?.notify;
+          if (api) {
+            void api({ title: t.toasts.pomodoroComplete, body: t.pages.pomodoro.takeBreak });
+          }
         }
       }
     }, 1000);

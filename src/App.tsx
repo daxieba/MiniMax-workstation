@@ -6,6 +6,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary/ErrorBoundary';
 import { CommandPalette, buildCommands } from '@/components/CommandPalette/CommandPalette';
 import { subscribeNativeTheme } from '@/lib/nativeTheme';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
+import { useTaskNotifier } from '@/hooks/useTaskNotifier';
 import { useI18nStore, useT } from '@/i18n';
 import { useCmdPaletteStore } from '@/store/cmdPaletteStore';
 import OverviewPage from '@/pages/Overview';
@@ -38,6 +39,9 @@ export default function App(): React.ReactElement {
 
   // v0.1.1: 全局键盘快捷键（Ctrl+N / Ctrl+K / Ctrl+1-7 / Ctrl+/ / Esc / Ctrl+Shift+P / Ctrl+Shift+L）
   useGlobalShortcuts();
+
+  // v0.3.0: 任务到期通知（每 60s 扫一次 dueDate 已过 + status 活跃的 task）
+  useTaskNotifier();
 
   // v0.1.2: 命令面板 —— 启动期注册一次
   const t = useT();

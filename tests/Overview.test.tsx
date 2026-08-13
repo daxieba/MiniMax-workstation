@@ -201,7 +201,8 @@ describe('OverviewPage', () => {
 
     it('renders empty text for inbox card', () => {
       renderOverview();
-      const empty = screen.getByTestId('overview-card-inbox-empty');
+      // v0.3.0: inbox card 永远显示 QuickInput；空态是内部 inbox-empty testid
+      const empty = screen.getByTestId('overview-inbox-empty');
       expect(empty).toBeInTheDocument();
       expect(empty.textContent).toContain('收集箱是空的');
     });
@@ -317,7 +318,7 @@ describe('OverviewPage', () => {
   });
 
   describe('recent inbox card', () => {
-    it('renders up to 5 active items', () => {
+    it('renders up to 3 active items (v0.3.0: limit reduced 5 → 3 to keep dashboard compact)', () => {
       const items: InboxItem[] = [];
       for (let i = 0; i < 8; i++) {
         items.push(
@@ -329,7 +330,7 @@ describe('OverviewPage', () => {
 
       const list = screen.getByTestId('overview-inbox-list');
       const rendered = within(list).getAllByTestId(/^overview-inbox-item-/);
-      expect(rendered).toHaveLength(5);
+      expect(rendered).toHaveLength(3);
     });
 
     it('excludes archived/converted items', () => {
@@ -346,14 +347,14 @@ describe('OverviewPage', () => {
       expect(within(list).queryByTestId('overview-inbox-item-I_converted')).toBeNull();
     });
 
-    it('truncates long content to 50 chars + ellipsis', () => {
+    it('truncates long content to 60 chars + ellipsis (v0.3.0: 50 → 60 to fit wider dashboard cards)', () => {
       const long = 'x'.repeat(200);
       const items = [makeInbox({ id: 'I_long', content: long })];
       useInboxStore.setState({ items });
       renderOverview();
       const row = screen.getByTestId('overview-inbox-item-I_long');
       const text = row.querySelector('p')?.textContent ?? '';
-      expect(text.length).toBeLessThanOrEqual(51);
+      expect(text.length).toBeLessThanOrEqual(61);
       expect(text.endsWith('…')).toBe(true);
     });
 
@@ -455,10 +456,13 @@ describe('OverviewPage', () => {
   });
 
   describe('navigation', () => {
-    it('renders a "查看全部收集箱" link pointing to /inbox', () => {
+    it('v0.3.0: header 已去掉"查看全部收集箱"链接（"查看全部"在 inbox card 右上角）', () => {
       renderOverview();
-      const link = screen.getByRole('link', { name: /查看全部收集箱/ });
-      expect(link.getAttribute('href')).toBe('/inbox');
+      const link = screen.queryByRole('link', { name: /查看全部收集箱/ });
+      expect(link).toBeNull();
+      // 但 inbox card 内的"查看全部" link 仍然存在
+      const cardLink = screen.getByTestId('overview-card-inbox').querySelector('a[href="/inbox"]');
+      expect(cardLink).toBeInTheDocument();
     });
   });
 });

@@ -24,7 +24,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent, Notification, shell } from 'electron';
 
 import { appMeta } from '../../../db/schema';
 import { type WorkstationDb } from '../../../db/client';
@@ -38,6 +38,7 @@ import {
   type AppMetaValueParsed,
   type DbStatusParsed,
 } from '../../../shared/schemas/db';
+import { NotifyInputSchema } from '../../../shared/schemas/notification';
 
 /** db 状态（启动时算好，由 `electron/main/index.ts` 注入）。 */
 export interface AppDbStatus extends DbStatusParsed {
@@ -183,5 +184,37 @@ export function registerAppIpc(deps: AppIpcDeps): void {
         details: toIpcError(err).message,
       };
     }
+  });
+
+  // 5. v0.3.0: app:notify —— 调系统通知（任务到期 / 番茄完成等）
+  safeHandle('app:notify', (_evt, payload) => {
+    const parsed = NotifyInputSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw {
+        code: 'VALIDATION_FAILED' as const,
+        message: 'Invalid notify input',
+        details: parsed.error.flatten(),
+      };
+    }
+    const { title, body, link } = parsed.data;
+    // 系统不支持通知时静默 return false
+    if (!Notification.isSupported()) {
+      return { shown: false };
+    }
+    const n = new Notification({
+      title,
+      body,
+      silent: false,
+      // 静默 + urgent 表现：Windows 上用 'normal' 让用户有声音
+      urgency: 'normal',
+    });
+    if (link) {
+      n.on('click', () => {
+        // 点击通知 → 打开 link（外链走系统默认浏览器；app 内路由不区分）
+        void shell.openExternal(link);
+      });
+    }
+    n.show();
+    return { shown: true };
   });
 }

@@ -11,6 +11,12 @@ import type { ThemeSource } from '@electron-shared/types';
  */
 
 const STORAGE_KEY = 'minimax.theme.mode';
+/** v0.3.0: 主题色板（accent color） */
+const ACCENT_STORAGE_KEY = 'minimax.theme.accent';
+/** 5 套主题色板 + 兜底 */
+export const ACCENT_PALETTES = ['blue', 'indigo', 'green', 'orange', 'pink'] as const;
+export type AccentPalette = (typeof ACCENT_PALETTES)[number];
+const VALID_PALETTES: ReadonlyArray<string> = ACCENT_PALETTES;
 
 /** 合法 mode 值（防御性，正常情况下只由 store 写入）。 */
 const VALID_MODES: ReadonlyArray<ThemeSource> = ['light', 'dark', 'system'];
@@ -53,10 +59,33 @@ export function applyResolvedTheme(resolved: 'light' | 'dark'): void {
   root.style.colorScheme = resolved;
 }
 
-/**
- * 解析当前系统的实际主题（用于 `system` 模式的兜底）。
- * 优先用 `matchMedia`，Electron 渲染端 jsdom 测试时可能不可用。
- */
+/** v0.3.0: 读出上次保存的主题色板；失败 / 非法返回 'blue' 兜底。 */
+export function loadStoredAccent(): AccentPalette {
+  try {
+    if (typeof localStorage === 'undefined') return 'blue';
+    const raw = localStorage.getItem(ACCENT_STORAGE_KEY);
+    if (raw && VALID_PALETTES.includes(raw)) return raw as AccentPalette;
+  } catch {
+    // ignore
+  }
+  return 'blue';
+}
+
+/** v0.3.0: 把主题色板写入 localStorage + 挂到 <html data-accent="...">。 */
+export function applyAccent(palette: AccentPalette): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(ACCENT_STORAGE_KEY, palette);
+    }
+  } catch {
+    // ignore
+  }
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-accent', palette);
+  }
+}
+
+/** 解析当前系统的实际主题（用于 `system` 模式的兜底）。 */
 export function resolveSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return 'light';
@@ -68,13 +97,15 @@ export function resolveSystemTheme(): 'light' | 'dark' {
  * 首屏同步应用：在 React 挂载前调用，避免首屏闪烁。
  *
  * 流程：
- *   1. 读 localStorage 里的 mode
+ *   1. 读 localStorage 里的 mode + accent
  *   2. 如果是 light/dark 直接应用；如果是 system 用 matchMedia 解析
  *   3. 给后续的 main 进程 IPC 异步同步打基础
  */
-export function initTheme(): { mode: ThemeSource; resolved: 'light' | 'dark' } {
+export function initTheme(): { mode: ThemeSource; resolved: 'light' | 'dark'; accent: AccentPalette } {
   const mode = loadStoredMode() ?? 'system';
   const resolved = mode === 'system' ? resolveSystemTheme() : mode;
+  const accent = loadStoredAccent();
   applyResolvedTheme(resolved);
-  return { mode, resolved };
+  applyAccent(accent);
+  return { mode, resolved, accent };
 }

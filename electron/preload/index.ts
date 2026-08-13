@@ -112,6 +112,7 @@ import {
   type ReviewParsed,
 } from '../../shared/schemas/review';
 import type { ReviewDraft } from '../../shared/types/review';
+import { NotifyInputSchema } from '../../shared/schemas/notification';
 import { SearchResultsSchema, type SearchResult } from '../../shared/schemas/search';
 import { SearchQuerySchema } from '../../shared/types/search';
 import {
@@ -365,6 +366,23 @@ const api = {
         message: z.string().min(1).max(256),
       });
       return invokeIpc('app:downloadUpdate', {}, DataSchema);
+    },
+
+    /**
+     * v0.3.0: 桌面通知（任务到期 / 番茄完成 / 自定义）。
+     * 调主进程系统通知 API；link 可选（点击通知打开外链）。
+     */
+    async notify(input: {
+      title: string;
+      body?: string;
+      link?: string;
+    }): Promise<
+      | { ok: true; data: { shown: boolean } }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = NotifyInputSchema.parse(input);
+      const DataSchema = z.object({ shown: z.boolean() });
+      return invokeIpc('app:notify', payload, DataSchema);
     },
   },
 

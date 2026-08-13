@@ -5,6 +5,77 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
+## [0.3.0] - 2026-08-13
+
+### Changed (minor)
+
+- **package.json / VERSION 升 0.2.1 → 0.3.0**：v0.3.0 大版本聚焦"眼前一亮"的视觉 / 体验升级。
+
+### Added
+
+#### 1. 主题色板切换（5 套 accent color）⭐
+
+- **5 套色板**：默认蓝 / 靓紫 / 森林绿 / 暖橘 / 樱粉
+- 全应用即时换色（CSS 变量 + `html[data-accent]` + 200ms 平滑过渡）
+- **2 个入口**：
+  - Overview 页 Hero 右上角 quick picker（5 圆点 inline）
+  - 设置页"主题色板"section（5 列 grid）
+- 持久化到 localStorage `minimax.theme.accent`
+- 深色 / 浅色模式自动适配（每个色板都配了 `.dark` 变体）
+- 切换不影响任何数据 / 逻辑
+
+#### 2. Overview 页 → 个人工作台仪表盘 ⭐
+
+- **Hero 区**：
+  - 渐变背景（accent-soft 配色）
+  - 问候语（早上好 / 中午好 / 下午好 / 晚上好 / 夜深了，按小时切换）
+  - 今日日期 + 加载提示
+  - **4 个 stat pill**：待办数 / 7d 收集 / 7d 完成 / 今日番茄
+  - 主题色板 quick picker
+- **Widget grid（6 个，桌面 3 列 / 平板 2 列 / 手机 1 列）**：
+  1. 今日重点任务（最多 5 条 + hover 高亮）
+  2. 逾期任务（红色 badge）
+  3. **快速收集箱**（QuickInput 永远显示 + 最近 3 条 + 空态友好提示）
+  4. **番茄钟快速启动**（25min / 5min / 15min 一键跳转 + 调 store.start）
+  5. 当前项目进度（最多 5 个 + 进度条）
+  6. **最近活动**（7d 收件 / 7d 完成 / 今日番茄）
+- AI placeholder 视觉降级（虚线框 + 短提示）
+
+#### 3. 桌面通知（v0.3.0 新基础设施）⭐
+
+- **主进程**：新增 `app:notify` IPC handler（Zod 校验入参 + 调系统 Notification）
+- **Windows**：`app.setAppUserModelId('com.MiniMax.workstation')` 通知带 app 名字
+- **preload**：暴露 `window.api.app.notify({ title, body?, link? })`
+- **通知 schema**：`shared/schemas/notification.ts`（title 1-200 / body 0-1000 / link 必须是 http(s)）
+- **useTaskNotifier hook**：App mount 时启动，每 60s 扫一次 task.dueDate
+  - 过期（昨天 + 之前）+ status 活跃 → 系统通知
+  - 同一 task 不重复通知（localStorage 防重，最多 500 条）
+- **Pomodoro 完成通知**：focus → break 时弹"🍅 番茄完成！休息一下吧"
+- **链接支持**：link 可选，点击通知调 `shell.openExternal` 打开外链
+
+#### 4. 快捷键 `Ctrl+Shift+H` 跳 Overview
+
+- 跟 `Ctrl+Shift+P`（命令面板）/ `Ctrl+Shift+L`（切语言）/ `Ctrl+N`（收集箱）/ `Ctrl+K`（搜索）一致风格
+
+#### 5. i18n 资源新增
+
+- 5 套主题色板 label（zh-CN / en-US / zh-TW）
+- Overview 仪表盘 hero + 5 个 widget + 4 个 stat pill + 3 个时段问候语
+- `toasts.taskOverdueTitle`（桌面通知标题）
+- pomodoroStore 新增 `setMode` action（让 Overview 一键启动可直接切到指定 mode）
+
+### Test
+
+- 76 files / 1100+ cases / 100% pass
+- IPC 11/11 smoke 全过
+- typecheck / lint / build 全部 0 错
+- 新增 `tests/ThemeSwitcher.test.tsx`（5 cases）
+- 新增 `tests/useTaskNotifier.test.tsx`（8 cases）
+
+### Bundle
+
+- 1.30MB（+0.02MB vs v0.2.1）
+
 ## [0.2.1] - 2026-08-13
 
 ### Changed (patch)

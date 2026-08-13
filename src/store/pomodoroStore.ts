@@ -102,6 +102,8 @@ export interface PomodoroState {
   reset: () => void;
   /** 跳过当前 mode（不计入完成），切到下一个 mode。 */
   skip: () => void;
+  /** v0.3.0: 显式切到指定 mode（reset 计时 + idle）。 */
+  setMode: (mode: PomodoroMode) => void;
   /** 内部：tick 1s 减 remaining；归零时调 onComplete（由组件传入）。 */
   tick: () => void;
   /** 切换 settings（持久化）。 */
@@ -148,6 +150,12 @@ export const usePomodoroStore = create<PomodoroState>((set, get) => {
       const next = nextMode(get(), mode);
       const total = getTotalForMode(get().settings, next);
       set({ status: 'idle', mode: next, totalMs: total, remainingMs: total });
+    },
+    setMode: (mode) => {
+      // v0.3.0: 显式设置 mode，重置计时器 + 切到 idle。
+      // 不计入 todayCount（用户从 Overview 快速启动，应是"开始一段专注"，不计入完成）。
+      const total = getTotalForMode(get().settings, mode);
+      set({ mode, status: 'idle', totalMs: total, remainingMs: total });
     },
     tick: () => {
       const { status, remainingMs, mode, focusStreak, settings, todayCount, todayDate } = get();

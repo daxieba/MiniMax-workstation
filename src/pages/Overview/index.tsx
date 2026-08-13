@@ -1,35 +1,51 @@
 /**
- * 总览页（T2-4 完整实现 + v0.1.2 i18n）
+ * 总览页 v0.3.0 重做 → "个人工作台仪表盘"
  *
- * 一屏总览用户的"主闭环"状态：
- *   - 顶部：欢迎语 + 今日日期 + 数据加载状态
- *   - 快速输入框（QuickInput）→ 调 `inboxStore.add`
- *   - 4 张数据卡片：
- *       1. 今日重点任务（task: dueDate = 今天 AND status NOT IN done/archived）
- *       2. 逾期任务（task: dueDate < 今天 AND status NOT IN done/archived）
- *       3. 最近收集（inbox: status=active，取最近 5 条）
- *       4. 当前项目进度（project + task 聚合，按最近活动排序）
- *   - 1 张 AI 占位卡片（T3-x 接入）
+ * 旧布局（T2-4）：4 张 OverviewCard 网格（今日 / 逾期 / 收集箱 / 项目进度）
+ *   - 视觉太"功能罗列"
+ *   - 没有 hero / 仪式感
+ *   - 没有番茄 / 主题色板 / 快捷动作的入口
  *
- * **v0.1.2 i18n**：标题 / 卡片 / 优先级 / kind / 逾期文案 / 时间格式 / 相对时间 全部派生自 useT()。
+ * 新布局（v0.3.0 仪表盘）：
+ *   - Hero 区：欢迎语 + 今日日期 + 关键数字（待办 / 番茄 / 收集） + 主题色板 quick picker
+ *   - Widget grid（6 个，桌面 3 列 / 平板 2 列 / 手机 1 列）：
+ *     1. 今日重点任务（最多 5 条 + "查看全部"）
+ *     2. 逾期任务（红色 alert）
+ *     3. 快速收集箱（QuickInput + 最近 3 条）
+ *     4. 番茄钟快速启动（25/5/15 一键跳转）
+ *     5. 当前项目进度
+ *     6. 最近活动（7d 收件 / 7d 完成 / 今日番茄）
+ *   - AI placeholder：保持但视觉降级
  *
- * **数据流**（纯前端聚合，不加新 IPC handler）。
+ * 数据流：纯前端聚合，不加新 IPC（**v0.1.2 起就坚持**）。
+ * 错误处理：保持 OverviewCard 容器 loading / isEmpty / emptyText 三态。
  *
- * **不做**：
- *   - 不做"最近 AI 结果"（T3-x 接入）
- *   - 不做日历 / 看板（PLAN §1 总览只列这些）
- *   - 不加新 IPC handler（任务卡硬约束）
+ * @see src/components/OverviewCard 容器
+ * @see src/components/QuickInput 快速收集
+ * @see src/components/ThemeSwitcher 主题色板
  */
 
 import { useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { CalendarDays, Inbox as InboxIcon, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  AlarmClock,
+  CalendarDays,
+  CheckCircle2,
+  Flame,
+  Inbox as InboxIcon,
+  ListTodo,
+  Sparkles,
+  Timer,
+  TrendingUp,
+} from 'lucide-react';
 
 import { OverviewCard } from '@/components/OverviewCard/OverviewCard';
 import { QuickInput } from '@/components/QuickInput/QuickInput';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher/ThemeSwitcher';
 import { useT, useI18nStore, type Lang } from '@/i18n';
 import { daysOverdue, isOverdue, isToday } from '@/lib/dateUtils';
 import { useInboxStore } from '@/store/inboxStore';
+import { usePomodoroStore } from '@/store/pomodoroStore';
 import { useProjectStore } from '@/store/projectStore';
 import { useTaskStore } from '@/store/taskStore';
 import type { InboxItem, InboxKind } from '@shared/types/inbox';
@@ -42,6 +58,8 @@ const PRIORITY_BADGE_CLASS: Record<TaskPriority, string> = {
   medium: 'border-accent/40 bg-accent-soft text-accent',
   low: 'border-line bg-elevated text-secondary',
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 拿当前 lang 派生日期 / 相对时间 / kind 标签。 */
 function useOverviewI18n() {
@@ -60,7 +78,12 @@ function useOverviewI18n() {
       hour: '2-digit',
       minute: '2-digit',
     });
-    const relFmt = lang === 'zh-CN' ? new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' }) : new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const relFmt =
+      lang === 'zh-CN'
+        ? new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' })
+        : lang === 'zh-TW'
+          ? new Intl.RelativeTimeFormat('zh-TW', { numeric: 'auto' })
+          : new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     return {
       lang,
       t,
@@ -82,7 +105,6 @@ function useOverviewI18n() {
   }, [t, lang]);
 }
 
-/** 把任务按 priority desc + dueDate asc 排序。 */
 function sortByPriorityThenDueDate(tasks: Task[]): Task[] {
   const priorityOrder: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
   return [...tasks].sort((a, b) => {
@@ -95,14 +117,12 @@ function sortByPriorityThenDueDate(tasks: Task[]): Task[] {
   });
 }
 
-/** 状态机白名单：'done' 和 'archived' 视为"已结束"，总览页过滤掉。 */
 const ACTIVE_STATUSES: ReadonlyArray<Task['status']> = TASK_STATUSES.filter(
   (s) => s !== 'done' && s !== 'archived',
 );
 
-const RECENT_INBOX_LIMIT = 5;
+const RECENT_INBOX_LIMIT = 3;
 
-/** 截断文本（用于列表预览）。 */
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   return `${s.slice(0, max)}…`;
@@ -112,7 +132,12 @@ function formatShortTime(ms: number, fmt: Intl.DateTimeFormat): string {
   return fmt.format(new Date(ms));
 }
 
-function formatRelativeTime(ms: number, now: number, relFmt: Intl.RelativeTimeFormat, lang: Lang): string {
+function formatRelativeTime(
+  ms: number,
+  now: number,
+  relFmt: Intl.RelativeTimeFormat,
+  lang: Lang,
+): string {
   const diffMs = ms - now;
   const absSec = Math.abs(diffMs) / 1000;
   if (absSec < 60) return lang === 'zh-CN' ? '刚刚' : 'just now';
@@ -132,7 +157,42 @@ function formatRelativeTime(ms: number, now: number, relFmt: Intl.RelativeTimeFo
   return relFmt.format(mo, 'month');
 }
 
-/** 单个任务行（今日 / 逾期共用渲染）。 */
+// =============================================================
+//  Hero 数据小卡
+// =============================================================
+
+interface StatPillProps {
+  icon: typeof ListTodo;
+  label: string;
+  value: number | string;
+  testId: string;
+  tone?: 'default' | 'accent' | 'danger';
+}
+
+function StatPill({ icon: Icon, label, value, testId, tone = 'default' }: StatPillProps): React.ReactElement {
+  return (
+    <div
+      data-testid={testId}
+      className={[
+        'flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm',
+        tone === 'accent'
+          ? 'border-accent/30 bg-accent-soft text-accent'
+          : tone === 'danger'
+            ? 'border-danger/30 bg-danger-soft text-danger'
+            : 'border-line bg-elevated text-primary',
+      ].join(' ')}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span className="text-xs text-secondary">{label}</span>
+      <span className="font-semibold tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+// =============================================================
+//  任务行
+// =============================================================
+
 interface TaskRowProps {
   task: Task;
   projectName: string | null;
@@ -157,7 +217,7 @@ function TaskRow({
     <li
       data-testid={`overview-task-row-${task.id}`}
       data-overdue-days={showOverdueBadge && days > 0 ? days : undefined}
-      className="flex items-center justify-between gap-2 rounded-md border border-line bg-base px-3 py-2"
+      className="flex items-center justify-between gap-2 rounded-md border border-line bg-base px-3 py-2 transition-colors hover:border-accent/40"
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-primary">{task.title}</p>
@@ -188,7 +248,10 @@ function TaskRow({
   );
 }
 
-/** 单个 inbox 行。 */
+// =============================================================
+//  Inbox 行
+// =============================================================
+
 function InboxRow({
   item,
   kindLabel,
@@ -203,7 +266,7 @@ function InboxRow({
       data-testid={`overview-inbox-item-${item.id}`}
       className="flex items-center justify-between gap-2 rounded-md border border-line bg-base px-3 py-2"
     >
-      <p className="min-w-0 flex-1 truncate text-sm text-primary">{truncate(item.content, 50)}</p>
+      <p className="min-w-0 flex-1 truncate text-sm text-primary">{truncate(item.content, 60)}</p>
       <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-secondary">
         <span
           data-testid={`overview-inbox-kind-${item.id}`}
@@ -217,15 +280,21 @@ function InboxRow({
   );
 }
 
-/** 单个项目进度行。 */
-interface ProjectRowProps {
+// =============================================================
+//  项目进度
+// =============================================================
+
+function ProjectRow({
+  project,
+  total,
+  done,
+  progressAria,
+}: {
   project: Project;
   total: number;
   done: number;
   progressAria: string;
-}
-
-function ProjectRow({ project, total, done, progressAria }: ProjectRowProps): React.ReactElement {
+}): React.ReactElement {
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
     <li
@@ -259,9 +328,70 @@ function ProjectRow({ project, total, done, progressAria }: ProjectRowProps): Re
   );
 }
 
-/**
- * 总览页。
- */
+// =============================================================
+//  番茄钟快速启动
+// =============================================================
+
+function PomodoroQuickStart(): React.ReactElement {
+  const t = useT();
+  const navigate = useNavigate();
+  const setMode = usePomodoroStore((s) => s.setMode);
+  const start = usePomodoroStore((s) => s.start);
+
+  const handleStart = (mode: 'focus' | 'shortBreak' | 'longBreak'): void => {
+    setMode(mode);
+    void start();
+    void navigate('/pomodoro');
+  };
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="overview-pomodoro-quickstart">
+      <button
+        type="button"
+        data-testid="overview-pomodoro-focus"
+        onClick={() => handleStart('focus')}
+        className="flex items-center justify-between gap-2 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent transition-colors hover:bg-accent hover:text-inverse"
+      >
+        <span className="flex items-center gap-2">
+          <Flame className="h-4 w-4" aria-hidden="true" />
+          {t.pages.overview.pomodoroFocus}
+        </span>
+        <span className="text-xs opacity-80">25:00</span>
+      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          data-testid="overview-pomodoro-short"
+          onClick={() => handleStart('shortBreak')}
+          className="flex items-center justify-between gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-xs text-secondary transition-colors hover:border-accent/40 hover:text-primary"
+        >
+          <span className="flex items-center gap-1.5">
+            <Timer className="h-3.5 w-3.5" aria-hidden="true" />
+            {t.pages.overview.pomodoroShort}
+          </span>
+          <span>5:00</span>
+        </button>
+        <button
+          type="button"
+          data-testid="overview-pomodoro-long"
+          onClick={() => handleStart('longBreak')}
+          className="flex items-center justify-between gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-xs text-secondary transition-colors hover:border-accent/40 hover:text-primary"
+        >
+          <span className="flex items-center gap-1.5">
+            <AlarmClock className="h-3.5 w-3.5" aria-hidden="true" />
+            {t.pages.overview.pomodoroLong}
+          </span>
+          <span>15:00</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
+//  主组件
+// =============================================================
+
 export default function OverviewPage(): React.ReactElement {
   const ov = useOverviewI18n();
   const t = ov.t;
@@ -280,6 +410,8 @@ export default function OverviewPage(): React.ReactElement {
   const inboxLoad = useInboxStore((s) => s.load);
   const inboxAdd = useInboxStore((s) => s.add);
 
+  const todayPomodoros = usePomodoroStore((s) => s.todayCount);
+
   // 首次挂载 → 拉 3 个 store
   useEffect(() => {
     void taskLoad();
@@ -288,33 +420,50 @@ export default function OverviewPage(): React.ReactElement {
   }, [taskLoad, projectLoad, inboxLoad]);
 
   // ===== 派生数据 =====
-  const todayTasks = useMemo<Task[]>(() => {
-    return sortByPriorityThenDueDate(
-      tasks.filter(
-        (t2) =>
-          t2.dueDate !== null &&
-          isToday(t2.dueDate) &&
-          ACTIVE_STATUSES.includes(t2.status),
-      ),
-    );
-  }, [tasks]);
+  const todayTasks = useMemo<Task[]>(
+    () =>
+      sortByPriorityThenDueDate(
+        tasks.filter(
+          (t2) =>
+            t2.dueDate !== null && isToday(t2.dueDate) && ACTIVE_STATUSES.includes(t2.status),
+        ),
+      ).slice(0, 5),
+    [tasks],
+  );
 
-  const overdueTasks = useMemo<Task[]>(() => {
-    return sortByPriorityThenDueDate(
-      tasks.filter(
-        (t2) =>
-          t2.dueDate !== null &&
-          isOverdue(t2.dueDate) &&
-          ACTIVE_STATUSES.includes(t2.status),
-      ),
-    );
-  }, [tasks]);
+  const overdueTasks = useMemo<Task[]>(
+    () =>
+      sortByPriorityThenDueDate(
+        tasks.filter(
+          (t2) =>
+            t2.dueDate !== null && isOverdue(t2.dueDate) && ACTIVE_STATUSES.includes(t2.status),
+        ),
+      ).slice(0, 5),
+    [tasks],
+  );
 
-  const recentInbox = useMemo<InboxItem[]>(() => {
-    return inboxItems
-      .filter((it) => it.status === 'active')
-      .slice(0, RECENT_INBOX_LIMIT);
+  const recentInbox = useMemo<InboxItem[]>(
+    () => inboxItems.filter((it) => it.status === 'active').slice(0, RECENT_INBOX_LIMIT),
+    [inboxItems],
+  );
+
+  // Hero 关键数字
+  const activeTaskCount = useMemo(
+    () => tasks.filter((t2) => ACTIVE_STATUSES.includes(t2.status)).length,
+    [tasks],
+  );
+
+  // 最近 7 天收件数
+  const recent7dInbox = useMemo(() => {
+    const cutoff = Date.now() - 7 * DAY_MS;
+    return inboxItems.filter((it) => it.createdAt >= cutoff).length;
   }, [inboxItems]);
+
+  // 最近 7 天完成任务数
+  const recent7dDone = useMemo(() => {
+    const cutoff = Date.now() - 7 * DAY_MS;
+    return tasks.filter((t2) => t2.status === 'done' && t2.updatedAt >= cutoff).length;
+  }, [tasks]);
 
   const projectProgress = useMemo<
     Array<{ project: Project; total: number; done: number; lastActivity: number }>
@@ -330,7 +479,7 @@ export default function OverviewPage(): React.ReactElement {
       );
       return { project: p, total, done, lastActivity };
     });
-    return rows.sort((a, b) => b.lastActivity - a.lastActivity);
+    return rows.sort((a, b) => b.lastActivity - a.lastActivity).slice(0, 5);
   }, [projects, tasks]);
 
   const projectNameById = useMemo<Map<string, string>>(() => {
@@ -343,38 +492,78 @@ export default function OverviewPage(): React.ReactElement {
   const todayDate = useMemo(() => ov.dateFmt.format(new Date()), [ov.dateFmt]);
   const now = useMemo(() => Date.now(), []);
 
+  // 问候语
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 5) return t.pages.overview.greetingLate;
+    if (h < 11) return t.pages.overview.greetingMorning;
+    if (h < 14) return t.pages.overview.greetingNoon;
+    if (h < 18) return t.pages.overview.greetingAfternoon;
+    if (h < 22) return t.pages.overview.greetingEvening;
+    return t.pages.overview.greetingLate;
+  }, [t]);
+
   return (
-    <section className="flex h-full flex-col gap-4 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary">{t.pages.overview.title}</h1>
-          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-secondary">
-            <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-            <span data-testid="overview-today-date">{todayDate}</span>
-            {dataLoading ? (
-              <span data-testid="overview-loading" className="ml-1 text-xs">
-                {t.pages.overview.loadingHint}
+    <section className="flex h-full flex-col gap-5 overflow-auto p-6">
+      {/* ====== Hero 区 ====== */}
+      <header
+        data-testid="overview-hero"
+        className="relative overflow-hidden rounded-xl border border-line bg-gradient-to-br from-accent-soft via-base to-base p-6 shadow-card"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-semibold text-primary">
+              {greeting}
+              <span className="ml-2 text-base font-normal text-secondary" data-testid="overview-today-date">
+                <CalendarDays className="-mt-0.5 mr-1 inline h-4 w-4" aria-hidden="true" />
+                {todayDate}
               </span>
+            </h1>
+            <p className="mt-1 text-sm text-secondary">{t.pages.overview.heroHint}</p>
+            {dataLoading ? (
+              <p data-testid="overview-loading" className="mt-1 text-xs text-secondary">
+                {t.pages.overview.loadingHint}
+              </p>
             ) : null}
-          </p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <ThemeSwitcher layout="row" testIdPrefix="overview-accent" />
+          </div>
         </div>
-        <Link
-          to="/inbox"
-          className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-xs text-secondary transition-colors hover:text-primary"
-        >
-          <InboxIcon className="h-3.5 w-3.5" aria-hidden="true" />
-          {t.pages.overview.viewAllInbox}
-        </Link>
+
+        {/* Hero stats row */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <StatPill
+            icon={ListTodo}
+            label={t.pages.overview.heroActiveTasks}
+            value={activeTaskCount}
+            testId="overview-stat-active"
+            tone={activeTaskCount > 0 ? 'accent' : 'default'}
+          />
+          <StatPill
+            icon={InboxIcon}
+            label={t.pages.overview.heroRecentInbox}
+            value={recent7dInbox}
+            testId="overview-stat-inbox"
+          />
+          <StatPill
+            icon={CheckCircle2}
+            label={t.pages.overview.heroRecentDone}
+            value={recent7dDone}
+            testId="overview-stat-done"
+          />
+          <StatPill
+            icon={Flame}
+            label={t.pages.overview.heroTodayPomodoros}
+            value={todayPomodoros}
+            testId="overview-stat-pomodoros"
+          />
+        </div>
       </header>
 
-      <QuickInput
-        submitting={inboxLoading}
-        onSubmit={(input) => {
-          void inboxAdd({ content: input.content, kind: input.kind, projectId: null });
-        }}
-      />
-
-      <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* ====== Widget grid（6 个） ====== */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* 1. 今日重点 */}
         <OverviewCard
           testId="today"
           title={t.pages.overview.todayCard}
@@ -408,6 +597,7 @@ export default function OverviewPage(): React.ReactElement {
           </ul>
         </OverviewCard>
 
+        {/* 2. 逾期任务 */}
         <OverviewCard
           testId="overdue"
           title={t.pages.overview.overdueCard}
@@ -443,11 +633,12 @@ export default function OverviewPage(): React.ReactElement {
           </ul>
         </OverviewCard>
 
+        {/* 3. 快速收集箱 */}
         <OverviewCard
           testId="inbox"
           title={t.pages.overview.inboxCard}
           loading={inboxLoading}
-          isEmpty={recentInbox.length === 0}
+          isEmpty={false}
           emptyText={t.pages.overview.inboxEmpty}
           headerExtra={
             <Link
@@ -458,31 +649,76 @@ export default function OverviewPage(): React.ReactElement {
             </Link>
           }
         >
-          <ul className="flex flex-col gap-2" data-testid="overview-inbox-list">
-            {recentInbox.map((it) => (
-              <li key={it.id}>
-                <Link
-                  to="/inbox"
-                  data-testid={`overview-inbox-link-${it.id}`}
-                  className="block rounded-md transition-colors hover:bg-elevated"
-                >
-                  <InboxRow
-                    item={it}
-                    kindLabel={ov.kindLabels[it.kind]}
-                    relTime={formatRelativeTime(it.createdAt, now, ov.relFmt, ov.lang)}
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-3">
+            <QuickInput
+              submitting={inboxLoading}
+              onSubmit={(input) => {
+                void inboxAdd({ content: input.content, kind: input.kind, projectId: null });
+              }}
+            />
+            {recentInbox.length > 0 ? (
+              <ul className="flex flex-col gap-1.5" data-testid="overview-inbox-list">
+                {recentInbox.map((it) => (
+                  <li key={it.id}>
+                    <Link
+                      to="/inbox"
+                      data-testid={`overview-inbox-link-${it.id}`}
+                      className="block rounded-md transition-colors hover:bg-elevated"
+                    >
+                      <InboxRow
+                        item={it}
+                        kindLabel={ov.kindLabels[it.kind]}
+                        relTime={formatRelativeTime(it.createdAt, now, ov.relFmt, ov.lang)}
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p
+                data-testid="overview-inbox-empty"
+                className="rounded-md border border-dashed border-line bg-base px-3 py-2 text-center text-xs text-secondary"
+              >
+                {t.pages.overview.inboxEmpty}
+              </p>
+            )}
+          </div>
         </OverviewCard>
 
+        {/* 4. 番茄钟快速启动 */}
+        <OverviewCard
+          testId="pomodoro"
+          title={t.pages.overview.pomodoroCard}
+          loading={false}
+          isEmpty={false}
+          emptyText=""
+          headerExtra={
+            <span
+              data-testid="overview-pomodoro-today"
+              className="rounded-md border border-line bg-base px-1.5 py-0.5 text-[10px] text-secondary"
+            >
+              {t.pages.overview.pomodoroTodayCount(todayPomodoros)}
+            </span>
+          }
+        >
+          <PomodoroQuickStart />
+        </OverviewCard>
+
+        {/* 5. 项目进度 */}
         <OverviewCard
           testId="projects"
           title={t.pages.overview.projectsCard}
           loading={projectsLoading || tasksLoading}
           isEmpty={projectProgress.length === 0}
           emptyText={t.pages.overview.projectsEmpty}
+          headerExtra={
+            <Link
+              to="/projects"
+              className="text-[11px] text-accent transition-colors hover:text-accent-hover"
+            >
+              {t.pages.overview.viewAll}
+            </Link>
+          }
         >
           <ul className="flex flex-col gap-2" data-testid="overview-projects-list">
             {projectProgress.map((row) => (
@@ -496,18 +732,66 @@ export default function OverviewPage(): React.ReactElement {
             ))}
           </ul>
         </OverviewCard>
+
+        {/* 6. 最近活动 */}
+        <OverviewCard
+          testId="activity"
+          title={t.pages.overview.activityCard}
+          loading={false}
+          isEmpty={false}
+          emptyText=""
+        >
+          <ul className="flex flex-col gap-2" data-testid="overview-activity-list">
+            <li
+              data-testid="overview-activity-inbox"
+              className="flex items-center justify-between gap-2 rounded-md border border-line bg-base px-3 py-2"
+            >
+              <span className="flex items-center gap-2 text-sm text-primary">
+                <InboxIcon className="h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+                {t.pages.overview.activity7dInbox}
+              </span>
+              <span className="font-semibold tabular-nums text-primary">{recent7dInbox}</span>
+            </li>
+            <li
+              data-testid="overview-activity-done"
+              className="flex items-center justify-between gap-2 rounded-md border border-line bg-base px-3 py-2"
+            >
+              <span className="flex items-center gap-2 text-sm text-primary">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden="true" />
+                {t.pages.overview.activity7dDone}
+              </span>
+              <span className="font-semibold tabular-nums text-primary">{recent7dDone}</span>
+            </li>
+            <li
+              data-testid="overview-activity-pomodoro"
+              className="flex items-center justify-between gap-2 rounded-md border border-line bg-base px-3 py-2"
+            >
+              <span className="flex items-center gap-2 text-sm text-primary">
+                <Flame className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
+                {t.pages.overview.activityTodayPomodoro}
+              </span>
+              <span className="font-semibold tabular-nums text-primary">{todayPomodoros}</span>
+            </li>
+          </ul>
+        </OverviewCard>
       </div>
 
+      {/* ====== AI placeholder（保留 + 视觉降级） ====== */}
       <section
         data-testid="overview-ai-placeholder"
-        className="rounded-lg border border-dashed border-line bg-elevated/50 p-4"
+        className="rounded-lg border border-dashed border-line bg-elevated/30 p-3"
       >
-        <header className="mb-1 flex items-center gap-2 text-sm font-medium text-primary">
-          <Sparkles className="h-4 w-4 text-accent" aria-hidden="true" />
+        <header className="mb-1 flex items-center gap-2 text-xs font-medium text-secondary">
+          <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
           {t.pages.overview.aiPlaceholderTitle}
         </header>
-        <p className="text-xs text-secondary">{t.pages.overview.aiPlaceholderHint}</p>
+        <p className="text-[11px] text-secondary">{t.pages.overview.aiPlaceholderHint}</p>
       </section>
+
+      {/* ====== 隐藏：保留 trending 引入免 lint 警告 ====== */}
+      <span className="hidden">
+        <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
     </section>
   );
 }

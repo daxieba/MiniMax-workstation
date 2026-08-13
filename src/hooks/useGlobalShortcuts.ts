@@ -106,6 +106,14 @@ export function useGlobalShortcuts(): void {
         return;
       }
 
+      // v0.3.0: Ctrl/Cmd + Shift + H → 跳到总览
+      if (e.shiftKey && (e.key === 'H' || e.key === 'h')) {
+        e.preventDefault();
+        navigate('/');
+        toast.info(t.toasts.switchedTo('/'));
+        return;
+      }
+
       if (e.key === '/') {
         e.preventDefault();
         toast.info(t.toasts.helpText);

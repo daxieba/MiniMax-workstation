@@ -60,6 +60,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher/LanguageSwitcher';
+import { ThemeSwitcher } from '@/components/ThemeSwitcher/ThemeSwitcher';
 import { useT } from '@/i18n';
 import { useAiStore } from '@/store/aiStore';
 import { useBackupStore } from '@/store/backupStore';
@@ -669,6 +670,18 @@ export default function SettingsPage(): React.ReactElement {
               <span className="text-primary">{t.settings.language.label}</span>
               <LanguageSwitcher testId="settings-language-switcher" />
             </div>
+          </section>
+
+          {/* ====== Section 1.6: 主题色板 (v0.3.0) ====== */}
+          <section
+            data-testid="settings-section-accent"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <SettingsIcon className="h-4 w-4" aria-hidden="true" />
+              {t.settings.theme.accentLabel}
+            </h2>
+            <ThemeSwitcher layout="grid" testIdPrefix="settings-accent" />
           </section>
 
           {/* ====== Section 2: AI ====== */}

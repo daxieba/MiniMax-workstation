@@ -40,6 +40,7 @@ html {
   --text-inverse: #f9fafb;
   --border: #e5e7eb;
   --border-strong: #d1d5db;
+  /* v0.3.0: accent 改成 data-accent 派生；保留 --accent 兜底（默认 blue） */
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --accent-soft: #dbeafe;
@@ -71,6 +72,84 @@ html {
   --warning: #fbbf24;
   --warning-soft: #78350f;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* =============================================================
+ * v0.3.0 主题色板：通过 html[data-accent="..."] 切换 accent 颜色
+ * - 5 套色板：blue（默认）/ indigo / green / orange / pink
+ * - 浅色 / 深色 自动适配（CSS 变量在 .dark 下重新覆盖）
+ * - 切换：根 html 加 data-accent="indigo" 等
+ * ============================================================= */
+
+html[data-accent='blue'] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+}
+html[data-accent='blue'].dark {
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-soft: #1e3a8a;
+}
+
+html[data-accent='indigo'] {
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-soft: #e0e7ff;
+}
+html[data-accent='indigo'].dark {
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-soft: #312e81;
+}
+
+html[data-accent='green'] {
+  --accent: #16a34a;
+  --accent-hover: #15803d;
+  --accent-soft: #dcfce7;
+}
+html[data-accent='green'].dark {
+  --accent: #4ade80;
+  --accent-hover: #86efac;
+  --accent-soft: #14532d;
+}
+
+html[data-accent='orange'] {
+  --accent: #ea580c;
+  --accent-hover: #c2410c;
+  --accent-soft: #ffedd5;
+}
+html[data-accent='orange'].dark {
+  --accent: #fb923c;
+  --accent-hover: #fdba74;
+  --accent-soft: #7c2d12;
+}
+
+html[data-accent='pink'] {
+  --accent: #db2777;
+  --accent-hover: #be185d;
+  --accent-soft: #fce7f3;
+}
+html[data-accent='pink'].dark {
+  --accent: #f472b6;
+  --accent-hover: #f9a8d4;
+  --accent-soft: #831843;
+}
+
+/* 主题色板切换过渡（200ms）—— 只对 body / 主容器生效，不污染所有元素 */
+body {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+.bg-accent,
+.text-accent,
+.border-accent,
+.bg-accent-soft {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
 }
 
 /* 默认 body 跟随主题（兜底，未挂 React 树时也有色） */

@@ -9,11 +9,11 @@ import { useThemeStore } from '@/store/themeStore';
 
 /**
  * 首屏主题同步：必须在 createRoot 之前调用，避免首屏闪烁。
- * 1. 从 localStorage 读 mode + 解析 → 直接挂到 <html>
+ * 1. 从 localStorage 读 mode + accent + 解析 → 直接挂到 <html>
  * 2. 同步到 store
  */
-const { mode, resolved } = initTheme();
-useThemeStore.setState({ mode, resolved });
+const { mode, resolved, accent } = initTheme();
+useThemeStore.setState({ mode, resolved, accent });
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {
