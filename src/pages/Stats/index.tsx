@@ -21,7 +21,7 @@
  *   - 不做长期趋势（v0.1.x 看 7/30 天够用）
  *   - 不做导出图表
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { BarChart3 } from 'lucide-react';
@@ -58,11 +58,13 @@ export default function StatsPage(): React.ReactElement {
   const projects = useProjectStore((s) => s.projects);
   const todayPomodoros = usePomodoroStore((s) => s.todayCount);
 
-  // 加载 review recent
-  const reviewLoadRecent = useReviewStore((s) => s.loadRecent);
-  if (reviews.length === 0) {
-    void reviewLoadRecent(60);
-  }
+  // v0.2.1 bug fix: 之前写在 render body 里（无 useEffect 包裹），每次 render 都触发，
+  //   loadRecent 调 IPC → setState reviews → re-render → 又调 → 死循环 / 大量无效 IPC。
+  //   现在：只在 mount 时调一次。
+  const reviewLoadRecentRef = useRef(useReviewStore.getState().loadRecent);
+  useEffect(() => {
+    void reviewLoadRecentRef.current(60);
+  }, []);
 
   const rangeMs = range === '7d' ? 7 * DAY_MS : range === '30d' ? 30 * DAY_MS : null;
   const cutoff = rangeMs === null ? 0 : Date.now() - rangeMs;

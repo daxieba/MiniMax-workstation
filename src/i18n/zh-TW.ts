@@ -97,6 +97,20 @@ const zhTW = {
       statusArchived: '已封存',
       viewKanban: '看板',
       viewList: '列表',
+      // v0.2.1: 頂部列 chip 化
+      projectsLabel: '專案',
+      statusFilterLabel: '狀態',
+      statusAll: '全部狀態',
+      newProject: '建立新專案',
+      editProject: '編輯專案',
+      archiveProject: '封存專案',
+      unarchiveProject: '取消封存',
+      deleteProject: '刪除專案',
+      projectMenu: '專案操作',
+      empty: {
+        noTasks: '當前檢視沒有任務',
+        noTasksHint: '點右上「+ 建立新任務」開始，或切換專案 / 狀態篩選',
+      },
     },
     ai: {
       title: 'AI 工作區',
@@ -433,6 +447,15 @@ const zhTW = {
       system: '跟隨系統',
       light: '淺色',
       dark: '深色',
+    },
+    dbDirectory: '資料目錄',
+    versionLabel: '版本',
+    version: (v: string): string => `版本 ${v}`,
+    updates: {
+      currentVersion: '目前版本',
+      check: '檢查更新',
+      checking: '檢查中…',
+      download: '下載更新',
     },
   },
 };

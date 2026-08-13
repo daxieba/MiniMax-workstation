@@ -5,6 +5,45 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
+## [0.2.1] - 2026-08-13
+
+### Changed (patch)
+
+- **package.json / VERSION 升 0.2.0 → 0.2.1**：v0.2.x 阶段第二轮更新，聚焦「Projects 页大改 + bug 修复 + 打磨」。
+
+### Added
+
+- **Projects 页顶栏 chip 化（重做布局）**
+  - **彻底移除左侧 ProjectList 1/4 栏**，释放主区空间给 List / Kanban
+  - 顶栏 3 行布局：
+    - 行 1：标题 + 任务数 + 视图 tab（看板/列表） + [+ 新建任务] [+ 新建项目]
+    - 行 2：「项目」chip 行（横向滚动；全部任务 / 无项目 / 各项目）+ 归档过滤 tab
+    - 行 3：「状态」chip（全部 / 待处理 / 进行中 / 已完成 / 已归档）+ 任务数 badge
+  - 选中项目 chip 时右侧出现 3 个操作按钮（编辑 / 归档 / 删除），无须 hover
+  - 视图模式 + 状态过滤 都 localStorage 持久化
+  - **List 视图加 `statusFilter` 过滤**：顶栏状态 chip 切换时联动
+  - **List 视图空态优化**：标题 + 副文案（提示切换过滤）+ Inbox 图标
+  - 旧 `ProjectList` 组件保留（`tests/ProjectList.test.tsx` 还在测），v0.2.2 清理
+- **设置页 i18n 化补漏**：
+  - 数据目录 label 之前误用 `t.pages.projects.title`（"项目与任务"） → 改为 `t.settings.dbDirectory`（"数据目录"）
+  - 底部 footer 路径 + 版本号 i18n 化（`t.settings.dbDirectory` + `t.settings.versionLabel`）
+  - 更新 section（"更新"/"当前版本"/"检查更新"/"下载更新"）i18n 化
+- **i18n 资源新增 13 个 key**：projects.* 顶栏相关 + settings.dbDirectory/versionLabel/version + settings.updates.*
+
+### Fixed
+
+- **设置页 section 1 第二行 label 错 bug**（pre-existing）：之前显示"项目与任务"——v0.1.2 i18n 化时把 label 误写成 `t.pages.projects.title`。v0.2.1 改为 `t.settings.dbDirectory`。
+- **Projects 页"4 列 Kanban 在窄屏挤到出横向滚动条"**：1/4 + 3/4 老布局 + 4 列 Kanban 在 1280px 下被挤。v0.2.1 顶栏 chip 化后，List / Kanban 都有全宽。
+- **TaskListView status 过滤后无匹配任务时白屏**：过滤后 `visibleCount === 0` 也走空态，跟 `tasks.length === 0` 一致。
+- **选中项目 chip 的操作按钮需要 hover 才显示**：UX 反直觉——选中就应该能操作。v0.2.1 改为选中态直接 inline 显示（不依赖 hover）。
+
+### Tests
+
+- 新增 `tests/ProjectsTopbar.test.tsx`（12 cases）：顶栏 3 行渲染 / 项目 chip 切换 / 状态 chip 切换 / 视图 tab / 归档 tab / 操作按钮组
+- `tests/ProjectsPageView.test.tsx` 重写（17 cases）：测新顶栏交互
+- `tests/TaskListView.test.tsx` 增 5 cases：v0.2.1 status 过滤
+- `tests/SettingsPage.test.tsx` / `tests/i18nStore.test.ts` 通过（i18n 资源新增 key 严格类型校验通过）
+
 ## [0.2.0] - 2026-08-13
 
 ### Changed (minor)

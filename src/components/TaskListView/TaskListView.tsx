@@ -1,10 +1,15 @@
 /**
- * 任务列表视图（v0.2.0 新增）
+ * 任务列表视图（v0.2.0 新增 + v0.2.1 增强）
  *
  * 跟 `TaskBoard` 平行：用同一组 `tasks` + 操作回调，但渲染成"按 status 分组的单列列表"，
  * 一页能看完全部任务，不用横向滚动。
  *
  * 排序：每组内按 priority desc (high > medium > low) + dueDate asc 排。
+ *
+ * **v0.2.1**:
+ *   - 新增 `statusFilter` prop：父页面（ProjectsPage）状态过滤 chip 选中时，
+ *     只渲染对应 status 的分组。`'all'` = 全部 4 组。
+ *   - 新增 `emptyHint` prop：空态时除了图标文字，还可以显示提示副文案。
  *
  * **不做**：
  *   - 不做跨组拖拽（看板模式才支持拖拽）
@@ -12,7 +17,7 @@
  *   - 不做虚拟滚动（数据量小；后续如真大量再做）
  */
 import { useMemo } from 'react';
-import { Archive, Calendar, Circle, CircleCheck, Flag, Pencil, Trash2 } from 'lucide-react';
+import { Archive, Calendar, Circle, CircleCheck, Flag, Inbox, Pencil, Trash2 } from 'lucide-react';
 
 import type { Task, TaskPriority } from '@shared/types/task';
 import { TASK_STATUSES, type TaskStatus } from '@shared/types/taskStatus';
@@ -33,10 +38,21 @@ const STATUS_ICON: Record<TaskStatus, typeof Circle> = {
   archived: Archive,
 };
 
+export type TaskListStatusFilter = TaskStatus | 'all';
+
 export interface TaskListViewProps {
   tasks: Task[];
   /** projectId → project name 查表（避免每个 task 嵌套查找）。 */
   projectNameById?: Map<string, string>;
+  /**
+   * v0.2.1: 状态过滤。`'all'` = 全部 4 组（默认）；具体 status = 只显示该组。
+   * 父组件 ProjectsPage 顶栏 status chip 切换时联动。
+   */
+  statusFilter?: TaskListStatusFilter;
+  /**
+   * v0.2.1: 空态副文案（提示用户怎么改过滤 / 新建）。省略时只显示标题。
+   */
+  emptyHint?: string;
   onEdit: (id: string) => void;
   /** 状态流转（父页面做确认后调 store.transition）。 */
   onTransitionIntent: (id: string, to: Task['status']) => void;
@@ -75,6 +91,8 @@ function formatDueDate(ms: number, lang: 'zh-CN' | 'zh-TW' | 'en-US'): string {
 export function TaskListView({
   tasks,
   projectNameById,
+  statusFilter = 'all',
+  emptyHint,
   onEdit,
   onTransitionIntent,
   onArchive,
@@ -108,14 +126,34 @@ export function TaskListView({
     archived: t.pages.projects.statusArchived,
   };
 
-  // 整体空态
-  if (tasks.length === 0) {
+  // v0.2.1: 要展示的 status 列表（过滤后）
+  const visibleStatuses = useMemo<TaskStatus[]>(
+    () => (statusFilter === 'all' ? [...TASK_STATUSES] : [statusFilter]),
+    [statusFilter],
+  );
+
+  // v0.2.1: 过滤后可见的 task 总数
+  const visibleCount = visibleStatuses.reduce<number>(
+    (sum, s) => sum + (grouped[s]?.length ?? 0),
+    0,
+  );
+
+  // 整体空态：tasks=0 OR 过滤后一个都没有
+  if (tasks.length === 0 || visibleCount === 0) {
     return (
       <div
         data-testid="task-list-view-empty"
-        className="flex h-full items-center justify-center rounded-md border border-dashed border-line bg-base p-6 text-sm text-secondary"
+        className="flex h-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-line bg-base p-6 text-sm text-secondary"
       >
-        {t.pages.projects.title}
+        <Inbox className="h-8 w-8 opacity-50" aria-hidden="true" />
+        <p data-testid="task-list-view-empty-title" className="text-primary">
+          {t.pages.projects.empty.noTasks}
+        </p>
+        {emptyHint ? (
+          <p data-testid="task-list-view-empty-hint" className="text-xs text-secondary">
+            {emptyHint}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -125,7 +163,7 @@ export function TaskListView({
       data-testid="task-list-view"
       className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto"
     >
-      {TASK_STATUSES.map((status) => {
+      {visibleStatuses.map((status) => {
         const list = grouped[status] ?? [];
         if (list.length === 0) return null;
         const Icon = STATUS_ICON[status];

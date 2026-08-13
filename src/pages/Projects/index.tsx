@@ -1,31 +1,34 @@
 /**
- * 项目与任务页（T2-3 完整实现 + v0.1.2 i18n）
+ * 项目与任务页（T2-3 完整实现 + v0.1.2 i18n + v0.2.0 List/Kanban + v0.2.1 顶栏 chip 化）
  *
- * 布局：
- *   - 左侧：项目列表（ProjectList）+ 顶部"+ 新建项目" + 归档过滤
- *   - 右侧：选中项目（或"全部" / "无项目"）的任务看板（TaskBoard）
- *   - 顶部：当前视图标题 + "+ 新建任务"按钮
+ * **v0.2.1 重构**：
+ *   旧布局 = 左侧 ProjectList 1/4 + 右侧 TaskBoard/List 3/4。
+ *   - 4 列 Kanban 在 1280px 宽度下被挤到出现横向滚动条
+ *   - List 视图白白损失 1/4 宽度给左侧项目栏
+ *   新布局 = 顶栏 3 行 + 主区全宽 TaskBoard / TaskListView：
+ *     - 行 1：标题 + 任务数 + [看板|列表] + [+ 新建任务] [+ 新建项目]
+ *     - 行 2：「项目」chip 行（横向滚动） + 归档过滤 tab
+ *     - 行 3：「状态」chip（全部 / 待处理 / 进行中 / 已完成 / 已归档）
  *
- * 数据源：
- *   - `useProjectStore`（项目列表）
- *   - `useTaskStore`（任务列表 + 过滤）
+ * **状态过滤**：
+ *   - 默认 'all'，localStorage 记住 `minimax.workstation.projects.statusFilter`
+ *   - 跟 projectId 是**正交**关系：先 projectId 过滤，再 status 过滤（TaskListView 内部做）
  *
- * 二次确认：
- *   - 删除 / 归档项目、删除任务：在各自的子组件里调 `window.confirm` 确认
- *   - 状态流转：子组件按钮不确认；父页面在 onTransitionIntent 内做确认
+ * **数据源**：
+ *   - `useProjectStore`（项目列表 + archiveFilter）
+ *   - `useTaskStore`（任务列表 + projectId 过滤）
  *
- * **v0.1.2 i18n**：标题 / 按钮 / 状态机 label / 确认提示 从 useT() 派生。
+ * **不做**：
+ *   - 不做项目管理菜单（编辑/归档/删除在 ProjectChip 上右键 / 长按 —— v0.2.2 再做）
+ *   - 不做项目搜索
  */
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Plus } from 'lucide-react';
-
 import { ProjectForm, type ProjectFormSubmitPayload } from '@/components/ProjectForm/ProjectForm';
-import { ProjectList } from '@/components/ProjectList/ProjectList';
+import { ProjectsTopbar, type ViewMode } from '@/components/ProjectsTopbar/ProjectsTopbar';
 import { TaskBoard } from '@/components/TaskBoard/TaskBoard';
 import { TaskForm, type TaskFormSubmitPayload } from '@/components/TaskForm/TaskForm';
-import { TaskListView } from '@/components/TaskListView/TaskListView';
+import { TaskListView, type TaskListStatusFilter } from '@/components/TaskListView/TaskListView';
 import { useT } from '@/i18n';
 import { useProjectStore } from '@/store/projectStore';
 import { useTaskStore } from '@/store/taskStore';
@@ -41,15 +44,33 @@ function truncate(s: string, max: number): string {
   return `${s.slice(0, max)}…`;
 }
 
-/** 把当前选中的 id 转成 task filter 用的 projectId 参数。 */
-function projectIdForFilter(id: string | null | undefined): string | null | undefined {
-  return id;
+// localStorage key —— 跟前缀 `minimax.workstation.projects.*` 对齐
+const VIEW_STORAGE_KEY = 'minimax.workstation.projects.view';
+const STATUS_STORAGE_KEY = 'minimax.workstation.projects.statusFilter';
+
+function loadViewMode(): ViewMode {
+  try {
+    const v = localStorage.getItem(VIEW_STORAGE_KEY);
+    return v === 'kanban' ? 'kanban' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
+function loadStatusFilter(): TaskListStatusFilter {
+  try {
+    const v = localStorage.getItem(STATUS_STORAGE_KEY);
+    if (v === 'todo' || v === 'doing' || v === 'done' || v === 'archived') return v;
+    return 'all';
+  } catch {
+    return 'all';
+  }
 }
 
 export default function ProjectsPage(): React.ReactElement {
   const t = useT();
 
-  // store 状态
+  // ===== store =====
   const projects = useProjectStore((s) => s.projects);
   const projectsLoading = useProjectStore((s) => s.loading);
   const archiveFilter = useProjectStore((s) => s.archiveFilter);
@@ -69,8 +90,11 @@ export default function ProjectsPage(): React.ReactElement {
   const taskArchive = useTaskStore((s) => s.archive);
   const taskDelete = useTaskStore((s) => s.delete);
 
-  // 视图级状态
-  const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined);
+  // ===== 视图级 state =====
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
+  const [statusFilter, setStatusFilterState] = useState<TaskListStatusFilter>(loadStatusFilter);
+
   const [projectFormOpen, setProjectFormOpen] = useState(false);
   const [projectFormMode, setProjectFormMode] = useState<'create' | 'edit'>('create');
   const [projectFormTarget, setProjectFormTarget] = useState<Project | undefined>(undefined);
@@ -89,17 +113,7 @@ export default function ProjectsPage(): React.ReactElement {
     [t],
   );
 
-  // v0.2.0: 视图模式（看板 / 列表），localStorage 记住
-  type ViewMode = 'kanban' | 'list';
-  const VIEW_STORAGE_KEY = 'minimax.workstation.projects.view';
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    try {
-      const v = localStorage.getItem(VIEW_STORAGE_KEY);
-      return v === 'kanban' ? 'kanban' : 'list';
-    } catch {
-      return 'list';
-    }
-  });
+  // 持久化：viewMode + statusFilter
   useEffect(() => {
     try {
       localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
@@ -107,17 +121,13 @@ export default function ProjectsPage(): React.ReactElement {
       // ignore
     }
   }, [viewMode]);
-
-  // 选中的"项目"显示文案。
-  const describeSelected = useCallback(
-    (id: string | null | undefined, list: Project[]): string => {
-      if (id === undefined) return t.pages.projects.allTasks;
-      if (id === null) return t.pages.projects.noProject;
-      const p = list.find((x) => x.id === id);
-      return p ? p.name : t.pages.projects.unknownProject;
-    },
-    [t],
-  );
+  useEffect(() => {
+    try {
+      localStorage.setItem(STATUS_STORAGE_KEY, statusFilter);
+    } catch {
+      // ignore
+    }
+  }, [statusFilter]);
 
   // 首次挂载：拉项目 + 拉任务
   useEffect(() => {
@@ -125,10 +135,10 @@ export default function ProjectsPage(): React.ReactElement {
     void useTaskStore.getState().load();
   }, []);
 
-  // 选中项目变化 → 更新 task filter（仅在 selectedId 变化时）
+  // 选中项目变化 → 更新 task filter
   useEffect(() => {
-    setTaskFilter({ projectId: projectIdForFilter(selectedId) });
-  }, [selectedId, setTaskFilter]);
+    setTaskFilter({ projectId: selectedProjectId });
+  }, [selectedProjectId, setTaskFilter]);
 
   // 用于 TaskForm 项目下拉的可见项目（只显示未归档）
   const visibleProjectsForSelect = useMemo(
@@ -136,14 +146,42 @@ export default function ProjectsPage(): React.ReactElement {
     [projects],
   );
 
-  // v0.2.0: List 视图用 projectId → name 查表（避免每个 task 嵌套查找）
+  // v0.2.0: projectId → name 查表
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects) map.set(p.id, p.name);
     return map;
   }, [projects]);
 
-  // ====== 项目操作 ======
+  // v0.2.1: 各 status 任务数（顶栏状态 chip badge 用）
+  const statusCounts = useMemo<Record<TaskStatus, number>>(() => {
+    const out: Record<TaskStatus, number> = { todo: 0, doing: 0, done: 0, archived: 0 };
+    for (const task of tasks) {
+      out[task.status] = (out[task.status] ?? 0) + 1;
+    }
+    return out;
+  }, [tasks]);
+
+  // ===== handlers =====
+
+  const handleSelectProject = useCallback((id: string | null | undefined): void => {
+    setSelectedProjectId(id);
+  }, []);
+
+  const handleSelectStatus = useCallback((filter: TaskListStatusFilter): void => {
+    setStatusFilterState(filter);
+  }, []);
+
+  const handleViewModeChange = useCallback((mode: ViewMode): void => {
+    setViewMode(mode);
+  }, []);
+
+  const handleArchiveFilterChange = useCallback(
+    (filter: typeof archiveFilter): void => {
+      setArchiveFilter(filter);
+    },
+    [setArchiveFilter],
+  );
 
   const handleCreateProject = useCallback((): void => {
     setProjectFormMode('create');
@@ -180,11 +218,11 @@ export default function ProjectsPage(): React.ReactElement {
       const ok = window.confirm(t.actions.deleteProjectConfirm(p.name));
       if (!ok) return;
       const success = await projectDelete(id);
-      if (success && selectedId === id) {
-        setSelectedId(undefined);
+      if (success && selectedProjectId === id) {
+        setSelectedProjectId(undefined);
       }
     },
-    [projectDelete, projects, selectedId, t],
+    [projectDelete, projects, selectedProjectId, t],
   );
 
   const handleProjectFormSubmit = useCallback(
@@ -202,8 +240,6 @@ export default function ProjectsPage(): React.ReactElement {
     },
     [projectCreate, projectUpdate],
   );
-
-  // ====== 任务操作 ======
 
   const handleCreateTask = useCallback((): void => {
     setTaskFormMode('create');
@@ -235,15 +271,12 @@ export default function ProjectsPage(): React.ReactElement {
     [taskTransition, tasks, STATUS_LABELS, t],
   );
 
-  // v0.1.1: 拖拽直接调 store.transition（不弹 confirm）—— 拖到目标列 = 明确意图
-  // 状态机 forward-only（todo → doing → done → archived），跨级 / 反向会被 store.transition 拒绝
+  // 拖拽直接调 store.transition（不弹 confirm）—— 拖到目标列 = 明确意图
   const handleTaskDropped = useCallback(
     async (id: string, to: TaskStatus): Promise<void> => {
       const t2 = tasks.find((x) => x.id === id);
       if (!t2) return;
-      // 同列拖到自己 = 忽略
       if (t2.status === to) return;
-      // 状态机不允许的流转（反向）→ 不静默失败，弹 toast 让用户知道
       const allowed = ALLOWED_TRANSITIONS[t2.status];
       if (!allowed.includes(to)) {
         toast.error(t.toasts.invalidTransition(STATUS_LABELS[t2.status], STATUS_LABELS[to]));
@@ -287,10 +320,9 @@ export default function ProjectsPage(): React.ReactElement {
     async (payload: TaskFormSubmitPayload): Promise<void> => {
       try {
         if (payload.create) {
-          // 新建时如果当前是具体项目，把 projectId 一起填
           const input = { ...payload.create };
-          if (typeof selectedId === 'string' && input.projectId === undefined) {
-            input.projectId = selectedId;
+          if (typeof selectedProjectId === 'string' && input.projectId === undefined) {
+            input.projectId = selectedProjectId;
           }
           await taskCreate(input);
         } else if (payload.update) {
@@ -301,120 +333,69 @@ export default function ProjectsPage(): React.ReactElement {
         // toast 已在 store 里打
       }
     },
-    [selectedId, taskCreate, taskUpdate],
+    [selectedProjectId, taskCreate, taskUpdate],
   );
 
   return (
     <section className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-elevated/40 px-6 py-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary">{t.pages.projects.title}</h1>
-          <p className="text-sm text-secondary">
-            {t.pages.projects.currentView}
-            <span data-testid="projects-selected-label" className="font-medium text-primary">{describeSelected(selectedId, projects)}</span>
-            {' · '}
-            {t.pages.projects.taskCount(tasks.length)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            data-testid="projects-new-task"
-            onClick={handleCreateTask}
-            className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-inverse transition-colors hover:bg-accent-hover"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            {t.pages.projects.newTask}
-          </button>
-        </div>
-      </header>
+      <ProjectsTopbar
+        totalTaskCount={tasks.length}
+        selectedProjectId={selectedProjectId}
+        projects={projects}
+        statusCounts={statusCounts}
+        statusFilter={statusFilter}
+        viewMode={viewMode}
+        archiveFilter={archiveFilter}
+        onSelectProject={handleSelectProject}
+        onSelectStatus={handleSelectStatus}
+        onViewModeChange={handleViewModeChange}
+        onArchiveFilterChange={handleArchiveFilterChange}
+        onNewTask={handleCreateTask}
+        onNewProject={handleCreateProject}
+        onEditProject={handleEditProject}
+        onArchiveProject={handleArchiveProject}
+        onDeleteProject={handleDeleteProject}
+      />
 
-      <div className="flex min-h-0 flex-1">
-        <ProjectList
-          projects={projects}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onCreate={handleCreateProject}
-          onEdit={handleEditProject}
-          onArchive={handleArchiveProject}
-          onDelete={handleDeleteProject}
-          archiveFilter={archiveFilter}
-          onArchiveFilterChange={setArchiveFilter}
-        />
-
-        <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-          {tasksError ? (
-            <div
-              role="alert"
-              data-testid="projects-error"
-              className="rounded-md border border-danger bg-danger-soft/40 px-3 py-2 text-sm text-danger"
-            >
-              {tasksError}
-            </div>
-          ) : null}
-
-          {projectsLoading || tasksLoading ? (
-            <p data-testid="projects-loading" className="text-xs text-secondary">{t.common.loading}</p>
-          ) : null}
-
-          {/* v0.2.0: 视图模式 tab 切换（看板 / 列表） */}
+      <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+        {tasksError ? (
           <div
-            role="tablist"
-            aria-label="view mode"
-            data-testid="projects-view-tabs"
-            className="inline-flex shrink-0 rounded-md border border-line bg-elevated p-0.5"
+            role="alert"
+            data-testid="projects-error"
+            className="rounded-md border border-danger bg-danger-soft/40 px-3 py-2 text-sm text-danger"
           >
-            <button
-              type="button"
-              role="tab"
-              data-testid="projects-view-kanban"
-              aria-selected={viewMode === 'kanban'}
-              onClick={() => setViewMode('kanban')}
-              className={[
-                'rounded px-3 py-1 text-xs transition-colors',
-                viewMode === 'kanban' ? 'bg-accent text-inverse' : 'text-secondary hover:text-primary',
-              ].join(' ')}
-            >
-              {t.pages.projects.viewKanban}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              data-testid="projects-view-list"
-              aria-selected={viewMode === 'list'}
-              onClick={() => setViewMode('list')}
-              className={[
-                'rounded px-3 py-1 text-xs transition-colors',
-                viewMode === 'list' ? 'bg-accent text-inverse' : 'text-secondary hover:text-primary',
-              ].join(' ')}
-            >
-              {t.pages.projects.viewList}
-            </button>
+            {tasksError}
           </div>
+        ) : null}
 
-          <div className="min-h-0 flex-1">
-            {viewMode === 'kanban' ? (
-              <TaskBoard
-                tasks={tasks}
-                onEdit={handleEditTask}
-                onTransitionIntent={handleTaskTransitionIntent}
-                onArchive={handleArchiveTask}
-                onDelete={handleDeleteTask}
-                onDropTask={handleTaskDropped}
-              />
-            ) : (
-              <TaskListView
-                tasks={tasks}
-                projectNameById={projectNameById}
-                onEdit={handleEditTask}
-                onTransitionIntent={handleTaskTransitionIntent}
-                onArchive={handleArchiveTask}
-                onDelete={handleDeleteTask}
-              />
-            )}
-          </div>
-        </main>
-      </div>
+        {projectsLoading || tasksLoading ? (
+          <p data-testid="projects-loading" className="text-xs text-secondary">{t.common.loading}</p>
+        ) : null}
+
+        <div className="min-h-0 flex-1">
+          {viewMode === 'kanban' ? (
+            <TaskBoard
+              tasks={tasks}
+              onEdit={handleEditTask}
+              onTransitionIntent={handleTaskTransitionIntent}
+              onArchive={handleArchiveTask}
+              onDelete={handleDeleteTask}
+              onDropTask={handleTaskDropped}
+            />
+          ) : (
+            <TaskListView
+              tasks={tasks}
+              projectNameById={projectNameById}
+              statusFilter={statusFilter}
+              emptyHint={t.pages.projects.empty.noTasksHint}
+              onEdit={handleEditTask}
+              onTransitionIntent={handleTaskTransitionIntent}
+              onArchive={handleArchiveTask}
+              onDelete={handleDeleteTask}
+            />
+          )}
+        </div>
+      </main>
 
       <ProjectForm
         open={projectFormOpen}

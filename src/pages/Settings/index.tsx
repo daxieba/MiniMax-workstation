@@ -633,7 +633,7 @@ export default function SettingsPage(): React.ReactElement {
                 </div>
               </div>
               <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-primary">{t.pages.settings.title}</span>
+                <span className="text-primary">{t.settings.dbDirectory}</span>
                 <div className="flex items-center gap-2">
                   <span
                     data-testid="settings-db-basename"
@@ -903,32 +903,33 @@ export default function SettingsPage(): React.ReactElement {
             </div>
           </section>
 
-          {/* ====== 底部：版本号 ====== */}
+          {/* ====== 底部：版本号（v0.2.1 i18n 化） ====== */}
           <footer
             data-testid="settings-footer"
             className="flex items-center justify-between border-t border-line pt-3 text-xs text-secondary"
           >
             <span>
               <FolderOpen className="mr-1 inline h-3 w-3" aria-hidden="true" />
-              路径：<span className="font-mono">{basenameOf(paths?.userData ?? 'userData')}</span>
+              {t.settings.dbDirectory}：<span className="font-mono">{basenameOf(paths?.userData ?? 'userData')}</span>
             </span>
             <span>
-              版本：<span className="font-mono" data-testid="settings-version">{appVersion}</span>
+              {t.settings.versionLabel}：
+              <span className="font-mono" data-testid="settings-version">{appVersion}</span>
             </span>
           </footer>
 
-          {/* ====== Section 6: 更新（T5-3 骨架） ====== */}
+          {/* ====== Section 6: 更新（T5-3 骨架 + v0.2.1 i18n 化） ====== */}
           <section
             data-testid="settings-section-updater"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              更新
+              {t.settings.sections.updates}
             </h2>
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-primary">当前版本</span>
+                <span className="text-primary">{t.settings.updates.currentVersion}</span>
                 <span
                   data-testid="settings-current-version"
                   className="font-mono text-xs text-secondary"
@@ -957,7 +958,7 @@ export default function SettingsPage(): React.ReactElement {
                   ) : (
                     <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                   )}
-                  检查更新
+                  {updaterChecking ? t.settings.updates.checking : t.settings.updates.check}
                 </button>
                 <button
                   type="button"
@@ -967,7 +968,7 @@ export default function SettingsPage(): React.ReactElement {
                   className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-3 py-1.5 text-sm text-primary transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                  下载更新
+                  {t.settings.updates.download}
                 </button>
               </div>
             </div>

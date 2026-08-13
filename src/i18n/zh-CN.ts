@@ -105,6 +105,20 @@ const zhCN = {
       statusArchived: '已归档',
       viewKanban: '看板',
       viewList: '列表',
+      // v0.2.1：顶栏 chip 化
+      projectsLabel: '项目',
+      statusFilterLabel: '状态',
+      statusAll: '全部状态',
+      newProject: '新建项目',
+      editProject: '编辑项目',
+      archiveProject: '归档项目',
+      unarchiveProject: '取消归档',
+      deleteProject: '删除项目',
+      projectMenu: '项目操作',
+      empty: {
+        noTasks: '当前视图没有任务',
+        noTasksHint: '点右上「+ 新建任务」开始，或切换项目/状态过滤',
+      },
     },
     ai: {
       title: 'AI 工作区',
@@ -442,6 +456,15 @@ const zhCN = {
       system: '跟随系统',
       light: '浅色',
       dark: '深色',
+    },
+    dbDirectory: '数据目录',
+    versionLabel: '版本',
+    version: (v: string): string => `版本 ${v}`,
+    updates: {
+      currentVersion: '当前版本',
+      check: '检查更新',
+      checking: '检查中…',
+      download: '下载更新',
     },
   },
 };

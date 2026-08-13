@@ -1,8 +1,8 @@
 {
   "name": "minimax-workstation",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
-  "description": "MiniMaxCode 个人工作台 — Windows 优先、本地优先的桌面应用",
+  "description": "MiniMaxCode 个人工作�?�?Windows 优先、本地优先的桌面应用",
   "type": "module",
   "main": "out/main/index.js",
   "author": "MiniMax",

@@ -183,4 +183,97 @@ describe('TaskListView', () => {
     expect(dueEl.textContent).toMatch(/08/);
     expect(dueEl.textContent).toMatch(/15/);
   });
+
+  // ===== v0.2.1: status 过滤 =====
+
+  it('v0.2.1: 默认 statusFilter=all 渲染 4 个分组', () => {
+    const tasks = [
+      makeTask({ id: '1', status: 'todo' }),
+      makeTask({ id: '2', status: 'doing' }),
+      makeTask({ id: '3', status: 'done' }),
+      makeTask({ id: '4', status: 'archived' }),
+    ];
+    render(
+      <TaskListView
+        tasks={tasks}
+        onEdit={vi.fn()}
+        onTransitionIntent={vi.fn()}
+        onArchive={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const groups = screen.getAllByTestId(/^task-list-group-(todo|doing|done|archived)$/);
+    expect(groups).toHaveLength(4);
+  });
+
+  it('v0.2.1: statusFilter=doing 只渲染 doing 分组', () => {
+    const tasks = [
+      makeTask({ id: '1', status: 'todo' }),
+      makeTask({ id: '2', status: 'doing' }),
+      makeTask({ id: '3', status: 'done' }),
+    ];
+    render(
+      <TaskListView
+        tasks={tasks}
+        statusFilter="doing"
+        onEdit={vi.fn()}
+        onTransitionIntent={vi.fn()}
+        onArchive={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('task-list-group-doing')).toBeInTheDocument();
+    expect(screen.queryByTestId('task-list-group-todo')).toBeNull();
+    expect(screen.queryByTestId('task-list-group-done')).toBeNull();
+  });
+
+  it('v0.2.1: statusFilter=archived 只显示 archived 任务', () => {
+    const tasks = [
+      makeTask({ id: 'tk-1', status: 'todo' }),
+      makeTask({ id: 'tk-2', status: 'archived' }),
+    ];
+    render(
+      <TaskListView
+        tasks={tasks}
+        statusFilter="archived"
+        onEdit={vi.fn()}
+        onTransitionIntent={vi.fn()}
+        onArchive={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('task-list-item-tk-2')).toBeInTheDocument();
+    expect(screen.queryByTestId('task-list-item-tk-1')).toBeNull();
+  });
+
+  it('v0.2.1: statusFilter 过滤后无匹配任务 → 渲染空态', () => {
+    const tasks = [makeTask({ id: 'tk-1', status: 'todo' })];
+    render(
+      <TaskListView
+        tasks={tasks}
+        statusFilter="doing"
+        onEdit={vi.fn()}
+        onTransitionIntent={vi.fn()}
+        onArchive={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    // 过滤后无 doing 任务 → 走空态
+    expect(screen.getByTestId('task-list-view-empty')).toBeInTheDocument();
+    expect(screen.queryByTestId('task-list-group-todo')).toBeNull();
+  });
+
+  it('v0.2.1: 空态显示 emptyHint 副文案', () => {
+    render(
+      <TaskListView
+        tasks={[]}
+        emptyHint="试试切换其他状态"
+        onEdit={vi.fn()}
+        onTransitionIntent={vi.fn()}
+        onArchive={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('task-list-view-empty-hint').textContent).toBe('试试切换其他状态');
+  });
 });

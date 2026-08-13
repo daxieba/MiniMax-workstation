@@ -100,6 +100,20 @@ const enUS: Translations = {
       statusArchived: 'Archived',
       viewKanban: 'Kanban',
       viewList: 'List',
+      // v0.2.1: topbar chips
+      projectsLabel: 'Projects',
+      statusFilterLabel: 'Status',
+      statusAll: 'All status',
+      newProject: 'New project',
+      editProject: 'Edit project',
+      archiveProject: 'Archive project',
+      unarchiveProject: 'Unarchive',
+      deleteProject: 'Delete project',
+      projectMenu: 'Project actions',
+      empty: {
+        noTasks: 'No tasks in current view',
+        noTasksHint: 'Click "+ New Task" to start, or change the project / status filter',
+      },
     },
     ai: {
       title: 'AI Workspace',
@@ -440,6 +454,15 @@ const enUS: Translations = {
       system: 'System',
       light: 'Light',
       dark: 'Dark',
+    },
+    dbDirectory: 'Data directory',
+    versionLabel: 'Version',
+    version: (v: string): string => `Version ${v}`,
+    updates: {
+      currentVersion: 'Current version',
+      check: 'Check for updates',
+      checking: 'Checking…',
+      download: 'Download update',
     },
   },
 };
