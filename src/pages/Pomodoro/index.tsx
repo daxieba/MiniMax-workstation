@@ -132,14 +132,14 @@ export default function PomodoroPage(): React.ReactElement {
       <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
         {/* 主区：计时器 + 控制 */}
         <div
-          className="flex flex-col items-center justify-center gap-4 rounded-lg border border-line bg-base p-6 shadow-card"
+          className="flex flex-col items-center gap-8 rounded-lg border border-line bg-base px-6 pt-8 pb-10 shadow-card"
           data-testid="pomodoro-timer"
         >
           {/* 模式切换 */}
           <div
             role="tablist"
             aria-label="Mode"
-            className="inline-flex rounded-md border border-line bg-elevated p-1"
+            className="inline-flex shrink-0 rounded-md border border-line bg-elevated p-1"
           >
             {(['focus', 'shortBreak', 'longBreak'] as PomodoroMode[]).map((m) => (
               <button
@@ -177,47 +177,51 @@ export default function PomodoroPage(): React.ReactElement {
             ))}
           </div>
 
-          {/* 进度环 */}
-          <svg
-            data-testid="pomodoro-ring"
-            width={ringSize}
-            height={ringSize}
-            viewBox={`0 0 ${ringSize} ${ringSize}`}
-            className="rotate-[-90deg]"
-          >
-            <circle
-              cx={ringSize / 2}
-              cy={ringSize / 2}
-              r={radius}
-              strokeWidth={stroke}
-              fill="none"
-              className="stroke-line"
-            />
-            <circle
-              cx={ringSize / 2}
-              cy={ringSize / 2}
-              r={radius}
-              strokeWidth={stroke}
-              fill="none"
-              className={mode === 'focus' ? 'stroke-accent' : 'stroke-success'}
-              strokeDasharray={circumference}
-              strokeDashoffset={dashOffset}
-              strokeLinecap="round"
-              style={{ transition: 'stroke-dashoffset 0.5s linear' }}
-            />
-          </svg>
-
-          {/* 时间 */}
+          {/* 进度环 + 时间叠加 */}
           <div
-            data-testid="pomodoro-time"
-            className="absolute font-mono text-5xl font-bold tabular-nums text-primary"
-            style={{ marginTop: 0 }}
+            className="relative flex items-center justify-center"
+            style={{ width: ringSize, height: ringSize }}
           >
-            {timeLabel}
+            <svg
+              data-testid="pomodoro-ring"
+              width={ringSize}
+              height={ringSize}
+              viewBox={`0 0 ${ringSize} ${ringSize}`}
+              className="rotate-[-90deg]"
+            >
+              <circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={radius}
+                strokeWidth={stroke}
+                fill="none"
+                className="stroke-line"
+              />
+              <circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={radius}
+                strokeWidth={stroke}
+                fill="none"
+                className={mode === 'focus' ? 'stroke-accent' : 'stroke-success'}
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 0.5s linear' }}
+              />
+            </svg>
+
+            {/* 时间（绝对居中叠在圆内） */}
+            <div
+              data-testid="pomodoro-time"
+              className="absolute inset-0 flex items-center justify-center font-mono text-5xl font-bold tabular-nums text-primary"
+            >
+              {timeLabel}
+            </div>
           </div>
 
-          {/* 控制 */}
-          <div className="flex items-center gap-2">
+          {/* 控制（独立行，间距清晰） */}
+          <div className="flex items-center gap-3">
             {status === 'idle' ? (
               <button
                 type="button"

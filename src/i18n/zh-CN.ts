@@ -293,6 +293,7 @@ const zhCN = {
     archive: '归档',
     unarchive: '取消归档',
     search: '搜索',
+    copy: '复制',
     clear: '清除',
     submit: '提交',
     close: '关闭',

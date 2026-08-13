@@ -649,7 +649,7 @@ export default function SettingsPage(): React.ReactElement {
                     className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-2 py-1 text-xs text-primary transition-colors hover:border-accent hover:text-accent"
                   >
                     <Copy className="h-3 w-3" aria-hidden="true" />
-                    {t.common.search}
+                    {t.common.copy}
                   </button>
                 </div>
               </div>

@@ -284,6 +284,7 @@ const zhTW = {
     archive: '封存',
     unarchive: '取消封存',
     search: '搜尋',
+    copy: '複製',
     clear: '清除',
     submit: '提交',
     close: '關閉',

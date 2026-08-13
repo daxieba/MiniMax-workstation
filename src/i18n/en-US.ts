@@ -287,6 +287,7 @@ const enUS: Translations = {
     archive: 'Archive',
     unarchive: 'Unarchive',
     search: 'Search',
+    copy: 'Copy',
     clear: 'Clear',
     submit: 'Submit',
     close: 'Close',
