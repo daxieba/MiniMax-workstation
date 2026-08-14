@@ -43,6 +43,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Bot,
+  CalendarDays,
+  ClipboardList,
   Copy,
   Database,
   Download,
@@ -54,6 +56,7 @@ import {
   Loader2,
   RefreshCw,
   Settings as SettingsIcon,
+  Timer,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -292,6 +295,50 @@ function useThemeCycle(): { mode: string; cycle: () => void } {
 void useThemeStoreSafely;
 
 // ============================================================
+//  索引导航（v0.4.0）
+// ============================================================
+
+interface SettingsSection {
+  /** 锚点 id（对应 section.id）。 */
+  id: string;
+  /** 显示标题（已 i18n）。 */
+  title: string;
+}
+
+/**
+ * 快捷键分组的"键 / 描述"小表（v0.4.0 settings 1.14 section 用）。
+ * 只读展示，不绑事件 —— 实际绑定在 useGlobalShortcuts。
+ */
+function ShortcutGroup({
+  title,
+  items,
+}: {
+  title: string;
+  items: ReadonlyArray<[string, string]>;
+}): React.ReactElement {
+  return (
+    <div>
+      <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-secondary">
+        {title}
+      </h3>
+      <ul className="space-y-1 rounded-md border border-line bg-elevated p-2">
+        {items.map(([key, label]) => (
+          <li
+            key={key}
+            className="flex items-center justify-between gap-2 text-xs"
+          >
+            <kbd className="rounded border border-line bg-base px-1.5 py-0.5 font-mono text-[10px] text-primary">
+              {key}
+            </kbd>
+            <span className="text-secondary">{label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ============================================================
 //  Settings 主组件
 // ============================================================
 
@@ -325,6 +372,10 @@ export default function SettingsPage(): React.ReactElement {
   // ai store（只读 provider）
   const aiProvider = useAiStore((s) => s.provider);
 
+  // v0.4.0: 5 个新偏好（通知 / 启动 / 番茄 / 关闭 / 导出 / 周起始）
+  const prefs = useSettingsStore((s) => s.prefs);
+  const updatePref = useSettingsStore((s) => s.updatePref);
+
   // 版本号
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
 
@@ -344,6 +395,68 @@ export default function SettingsPage(): React.ReactElement {
       }
     | null
   >(null);
+
+  // v0.4.0: 索引导航（15 个 section，按文档顺序）
+  const navSections: ReadonlyArray<SettingsSection> = useMemo(
+    () => [
+      { id: 'settings-section-appearance', title: t.pages.settings.navAppearance },
+      { id: 'settings-section-language', title: t.pages.settings.navLanguage },
+      { id: 'settings-section-accent', title: t.pages.settings.navTheme },
+      { id: 'settings-section-notifications', title: t.pages.settings.navNotifications },
+      { id: 'settings-section-startup', title: t.pages.settings.navStartup },
+      { id: 'settings-section-pomodoro', title: t.pages.settings.navPomodoro },
+      { id: 'settings-section-close', title: t.pages.settings.navClose },
+      { id: 'settings-section-export', title: t.pages.settings.navExport },
+      { id: 'settings-section-week-start', title: t.pages.settings.navWeek },
+      { id: 'settings-section-storage', title: t.pages.settings.navStorage },
+      { id: 'settings-section-shortcuts', title: t.pages.settings.navShortcuts },
+      { id: 'settings-section-tasks', title: t.pages.settings.navTasks },
+      { id: 'settings-section-ai', title: t.pages.settings.navAi },
+      { id: 'settings-section-backup', title: t.pages.settings.navBackup },
+      { id: 'settings-section-backup-list', title: t.pages.settings.navBackupFiles },
+      { id: 'settings-section-danger', title: t.pages.settings.navDanger },
+      { id: 'settings-section-updater', title: t.pages.settings.navUpdates },
+    ],
+    [t],
+  );
+
+  // v0.4.0: 数据存储 section state
+  const [storageInfo, setStorageInfo] = useState<{
+    dbSizeBytes: number;
+    dbPath: string;
+    userDataDir: string;
+  } | null>(null);
+  const loadStorageInfo = useCallback(async (): Promise<void> => {
+    if (typeof window === 'undefined') return;
+    const w = window as unknown as {
+      api?: {
+        app?: {
+          getStorageInfo(): Promise<
+            | { ok: true; data: { dbSizeBytes: number; dbPath: string; userDataDir: string } }
+            | { ok: false; error: { code: string; message: string } }
+          >;
+          openUserDataDir?(): Promise<
+            | { ok: true; data: { opened: boolean } }
+            | { ok: false; error: { code: string; message: string } }
+          >;
+        };
+      };
+    };
+    const fn = w.api?.app?.getStorageInfo;
+    if (!fn) {
+      setStorageInfo(null);
+      return;
+    }
+    try {
+      const res = await fn();
+      if (res.ok) setStorageInfo(res.data);
+    } catch {
+      // ignore
+    }
+  }, []);
+  useEffect(() => {
+    void loadStorageInfo();
+  }, [loadStorageInfo]);
 
   // 挂载：拉 settings / paths / backups + 触发自动备份 + 拉版本号
   useEffect(() => {
@@ -595,6 +708,24 @@ export default function SettingsPage(): React.ReactElement {
         <p className="text-sm text-secondary">{t.settings.sections.appearance} · {t.settings.sections.ai} · {t.settings.sections.backup}</p>
       </header>
 
+      {/* ====== v0.4.0: 索引导航（sticky 横条） ====== */}
+      <nav
+        data-testid="settings-nav"
+        aria-label={t.pages.settings.title}
+        className="sticky top-0 z-10 flex flex-wrap gap-1 border-b border-line bg-base/95 px-6 py-2 backdrop-blur supports-[backdrop-filter]:bg-base/80"
+      >
+        {navSections.map((s) => (
+          <a
+            key={s.id}
+            href={`#${s.id}`}
+            data-testid={`settings-nav-link-${s.id}`}
+            className="rounded-full border border-transparent px-2.5 py-1 text-xs text-secondary transition-colors hover:border-line hover:bg-elevated hover:text-accent"
+          >
+            {s.title}
+          </a>
+        ))}
+      </nav>
+
       <div className="flex-1 overflow-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
           {(settingsError !== null || backupsError !== null) && (
@@ -608,8 +739,7 @@ export default function SettingsPage(): React.ReactElement {
           )}
 
           {/* ====== Section 1: 外观 ====== */}
-          <section
-            data-testid="settings-section-appearance"
+          <section id="settings-section-appearance" data-testid="settings-section-appearance"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
@@ -658,8 +788,7 @@ export default function SettingsPage(): React.ReactElement {
           </section>
 
           {/* ====== Section 1.5: 语言 (v0.1.2) ====== */}
-          <section
-            data-testid="settings-section-language"
+          <section id="settings-section-language" data-testid="settings-section-language"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
@@ -673,8 +802,7 @@ export default function SettingsPage(): React.ReactElement {
           </section>
 
           {/* ====== Section 1.6: 主题色板 (v0.3.0) ====== */}
-          <section
-            data-testid="settings-section-accent"
+          <section id="settings-section-accent" data-testid="settings-section-accent"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
@@ -684,9 +812,405 @@ export default function SettingsPage(): React.ReactElement {
             <ThemeSwitcher layout="grid" testIdPrefix="settings-accent" />
           </section>
 
-          {/* ====== Section 2: AI ====== */}
+          {/* ====== Section 1.7: 通知偏好 (v0.4.0) ====== */}
+          <section id="settings-section-notifications" data-testid="settings-section-notifications"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+              {t.pages.notificationPrefs.title}
+            </h2>
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  data-testid="settings-notify-task-overdue"
+                  checked={prefs.notifyTaskOverdue}
+                  onChange={(e) => void updatePref('notifyTaskOverdue', e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="text-primary">{t.pages.notificationPrefs.taskOverdue}</span>
+                  <span className="ml-1 text-xs text-secondary">— {t.pages.notificationPrefs.taskOverdueHelp}</span>
+                </span>
+              </label>
+              <div className="flex items-center justify-between gap-2 pl-6 text-sm">
+                <div>
+                  <span className="text-primary">{t.pages.notificationPrefs.taskOverdueLeadMin}</span>
+                  <span className="ml-1 text-xs text-secondary">— {t.pages.notificationPrefs.taskOverdueLeadMinHelp}</span>
+                </div>
+                <select
+                  data-testid="settings-notify-task-overdue-lead"
+                  value={prefs.notifyTaskOverdueLeadMin}
+                  onChange={(e) => void updatePref('notifyTaskOverdueLeadMin', Number(e.target.value))}
+                  className="rounded-md border border-line bg-elevated px-2 py-1 text-xs text-primary"
+                >
+                  {[0, 5, 10, 15, 30, 60].map((n) => (
+                    <option key={n} value={n}>
+                      {n} min
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  data-testid="settings-notify-pomodoro"
+                  checked={prefs.notifyPomodoroComplete}
+                  onChange={(e) => void updatePref('notifyPomodoroComplete', e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="text-primary">{t.pages.notificationPrefs.pomodoroComplete}</span>
+                  <span className="ml-1 text-xs text-secondary">— {t.pages.notificationPrefs.pomodoroCompleteHelp}</span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          {/* ====== Section 1.8: 启动行为 (v0.4.0) ====== */}
+          <section id="settings-section-startup" data-testid="settings-section-startup"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              {t.pages.startupPrefs.title}
+            </h2>
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  data-testid="settings-startup-open-on-boot"
+                  checked={prefs.openOnBoot}
+                  onChange={(e) => void updatePref('openOnBoot', e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="text-primary">{t.pages.startupPrefs.openOnBoot}</span>
+                  <span className="ml-1 text-xs text-secondary">— {t.pages.startupPrefs.openOnBootHelp}</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  data-testid="settings-startup-restore-last-page"
+                  checked={prefs.restoreLastPage}
+                  onChange={(e) => void updatePref('restoreLastPage', e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="text-primary">{t.pages.startupPrefs.restoreLastPage}</span>
+                  <span className="ml-1 text-xs text-secondary">— {t.pages.startupPrefs.restoreLastPageHelp}</span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          {/* ====== Section 1.9: 番茄偏好 (v0.4.0) ====== */}
+          <section id="settings-section-pomodoro" data-testid="settings-section-pomodoro"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <Timer className="h-4 w-4" aria-hidden="true" />
+              {t.pages.pomodoroPrefs.title}
+            </h2>
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  data-testid="settings-pomodoro-auto-start-break"
+                  checked={prefs.pomodoroAutoStartBreak}
+                  onChange={(e) => void updatePref('pomodoroAutoStartBreak', e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-primary">{t.pages.pomodoroPrefs.autoStartBreak}</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  data-testid="settings-pomodoro-auto-start-focus"
+                  checked={prefs.pomodoroAutoStartFocus}
+                  onChange={(e) => void updatePref('pomodoroAutoStartFocus', e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-primary">{t.pages.pomodoroPrefs.autoStartFocus}</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  data-testid="settings-pomodoro-sound"
+                  checked={prefs.pomodoroSoundOn}
+                  onChange={(e) => void updatePref('pomodoroSoundOn', e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-primary">{t.pages.pomodoroPrefs.soundOn}</span>
+              </label>
+            </div>
+          </section>
+
+          {/* ====== Section 1.10: 关闭行为 (v0.4.0) ====== */}
+          <section id="settings-section-close-behavior" data-testid="settings-section-close-behavior"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <SettingsIcon className="h-4 w-4" aria-hidden="true" />
+              {t.pages.closeBehaviorPrefs.title}
+            </h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-primary">{t.pages.closeBehaviorPrefs.onCloseAction}</span>
+                <div className="inline-flex rounded-md border border-line bg-elevated p-0.5 text-xs">
+                  {(['minimize', 'quit'] as const).map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      data-testid={`settings-close-action-${a}`}
+                      onClick={() => void updatePref('closeAction', a)}
+                      className={[
+                        'rounded px-2 py-1 transition-colors',
+                        prefs.closeAction === a
+                          ? 'bg-accent text-inverse'
+                          : 'text-secondary hover:text-primary',
+                      ].join(' ')}
+                    >
+                      {t.pages.closeBehaviorPrefs.actions[a]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ====== Section 1.11: 数据导出格式 (v0.4.0) ====== */}
+          <section id="settings-section-export-format" data-testid="settings-section-export-format"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <FileText className="h-4 w-4" aria-hidden="true" />
+              {t.pages.exportFormatPrefs.title}
+            </h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-primary">{t.pages.exportFormatPrefs.defaultFormat}</span>
+                <select
+                  data-testid="settings-export-format"
+                  value={prefs.exportFormat}
+                  onChange={(e) => void updatePref('exportFormat', e.target.value as 'json' | 'csv' | 'markdown')}
+                  className="rounded-md border border-line bg-elevated px-2 py-1 text-xs text-primary"
+                >
+                  {(['json', 'csv', 'markdown'] as const).map((f) => (
+                    <option key={f} value={f}>
+                      {t.pages.exportFormatPrefs.formats[f]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* ====== Section 1.12: 周起始日 (v0.4.0) ====== */}
+          <section id="settings-section-week-start" data-testid="settings-section-week-start"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              {t.pages.weekStartPrefs.title}
+            </h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <div>
+                  <span className="text-primary">{t.pages.weekStartPrefs.title}</span>
+                  <span className="ml-1 text-xs text-secondary">— {t.pages.weekStartPrefs.mondayHelp}</span>
+                </div>
+                <div className="inline-flex rounded-md border border-line bg-elevated p-0.5 text-xs">
+                  {(['monday', 'sunday'] as const).map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      data-testid={`settings-week-start-${w}`}
+                      onClick={() => void updatePref('weekStart', w)}
+                      className={[
+                        'rounded px-2 py-1 transition-colors',
+                        prefs.weekStart === w
+                          ? 'bg-accent text-inverse'
+                          : 'text-secondary hover:text-primary',
+                      ].join(' ')}
+                    >
+                      {w === 'monday' ? t.pages.weekStartPrefs.monday : t.pages.weekStartPrefs.sunday}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ====== Section 1.13: 数据存储 (v0.4.0) ====== */}
           <section
-            data-testid="settings-section-ai"
+            id="settings-section-storage"
+            data-testid="settings-section-storage"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <HardDrive className="h-4 w-4" aria-hidden="true" />
+              {t.pages.storagePrefs.title}
+            </h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-primary">{t.pages.storagePrefs.dbSize}</span>
+                <span
+                  data-testid="settings-storage-db-size"
+                  className="font-mono text-xs text-secondary tabular-nums"
+                >
+                  {storageInfo === null ? '—' : formatSize(storageInfo.dbSizeBytes)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-primary">{t.pages.storagePrefs.dbPath}</span>
+                <span
+                  data-testid="settings-storage-db-path"
+                  className="max-w-[60%] truncate font-mono text-[10px] text-secondary"
+                  title={storageInfo?.dbPath ?? ''}
+                >
+                  {storageInfo ? basenameOf(storageInfo.dbPath) : '—'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-primary">{t.pages.storagePrefs.backupDir}</span>
+                <span
+                  data-testid="settings-storage-user-data"
+                  className="max-w-[60%] truncate font-mono text-[10px] text-secondary"
+                  title={storageInfo?.userDataDir ?? ''}
+                >
+                  {storageInfo ? basenameOf(storageInfo.userDataDir) : '—'}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                <button
+                  type="button"
+                  data-testid="settings-storage-refresh"
+                  onClick={() => void loadStorageInfo()}
+                  className="inline-flex items-center gap-1 rounded-md border border-line bg-elevated px-2.5 py-1.5 text-xs text-primary transition-colors hover:border-accent hover:text-accent"
+                >
+                  <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                  {t.pages.storagePrefs.refresh}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* ====== Section 1.14: 快捷键一览 (v0.4.0) ====== */}
+          <section
+            id="settings-section-shortcuts"
+            data-testid="settings-section-shortcuts"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <SettingsIcon className="h-4 w-4" aria-hidden="true" />
+              {t.pages.shortcutsList.title}
+            </h2>
+            <div className="space-y-3 text-sm">
+              <ShortcutGroup
+                title={t.pages.shortcutsList.navGroup}
+                items={[
+                  ['Ctrl+1', t.shortcuts.navOverview],
+                  ['Ctrl+2', t.shortcuts.navInbox],
+                  ['Ctrl+3', t.shortcuts.navProjects],
+                  ['Ctrl+4', t.shortcuts.navKnowledge],
+                  ['Ctrl+5', t.shortcuts.navReview],
+                  ['Ctrl+6', t.shortcuts.navCalendar],
+                  ['Ctrl+7', t.shortcuts.navPomodoro],
+                  ['Ctrl+8', t.shortcuts.navStats],
+                  ['Ctrl+9', t.shortcuts.navSettings],
+                ]}
+              />
+              <ShortcutGroup
+                title={t.pages.shortcutsList.actionGroup}
+                items={[
+                  ['Ctrl+N', t.shortcuts.newInbox],
+                  ['Ctrl+K', t.shortcuts.search],
+                  ['Ctrl+Shift+P', t.shortcuts.cmdPalette],
+                  ['Esc', t.shortcuts.esc],
+                ]}
+              />
+            </div>
+          </section>
+
+          {/* ====== Section 1.15: 任务默认 (v0.4.0) ====== */}
+          <section
+            id="settings-section-tasks"
+            data-testid="settings-section-tasks"
+            className="rounded-lg border border-line bg-base p-4 shadow-card"
+          >
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
+              <ClipboardList className="h-4 w-4" aria-hidden="true" />
+              {t.pages.taskDefaults.title}
+            </h2>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-primary">{t.pages.taskDefaults.defaultPriority}</span>
+                <div className="inline-flex rounded-md border border-line bg-elevated p-0.5 text-xs">
+                  {(['low', 'medium', 'high'] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      data-testid={`settings-default-priority-${p}`}
+                      onClick={() => void updatePref('defaultTaskPriority', p)}
+                      className={[
+                        'rounded px-2 py-1 transition-colors',
+                        prefs.defaultTaskPriority === p
+                          ? 'bg-accent text-inverse'
+                          : 'text-secondary hover:text-primary',
+                      ].join(' ')}
+                    >
+                      {p === 'low' ? '低' : p === 'medium' ? '中' : '高'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-primary">{t.pages.taskDefaults.defaultStatus}</span>
+                <div className="inline-flex rounded-md border border-line bg-elevated p-0.5 text-xs">
+                  {(['todo', 'doing'] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      data-testid={`settings-default-status-${s}`}
+                      onClick={() => void updatePref('defaultTaskStatus', s)}
+                      className={[
+                        'rounded px-2 py-1 transition-colors',
+                        prefs.defaultTaskStatus === s
+                          ? 'bg-accent text-inverse'
+                          : 'text-secondary hover:text-primary',
+                      ].join(' ')}
+                    >
+                      {s === 'todo' ? '待处理' : '进行中'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-primary">{t.pages.taskDefaults.defaultDueOffsetDays}</span>
+                  <span className="ml-1 text-xs text-secondary">— {t.pages.taskDefaults.defaultDueOffsetHelp}</span>
+                </div>
+                <select
+                  data-testid="settings-default-due-offset"
+                  value={prefs.defaultDueOffsetDays}
+                  onChange={(e) => void updatePref('defaultDueOffsetDays', Number(e.target.value))}
+                  className="rounded-md border border-line bg-elevated px-2 py-1 text-xs text-primary"
+                >
+                  {[0, 1, 2, 3, 5, 7, 14, 30].map((n) => (
+                    <option key={n} value={n}>
+                      {n === 0 ? t.pages.taskDefaults.defaultNone : `${n}d`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* ====== Section 2: AI ====== */}
+          <section id="settings-section-ai" data-testid="settings-section-ai"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
@@ -716,8 +1240,7 @@ export default function SettingsPage(): React.ReactElement {
           </section>
 
           {/* ====== Section 3: 备份 ====== */}
-          <section
-            data-testid="settings-section-backup"
+          <section id="settings-section-backup" data-testid="settings-section-backup"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
@@ -803,8 +1326,7 @@ export default function SettingsPage(): React.ReactElement {
           </section>
 
           {/* ====== Section 4: 备份文件列表 ====== */}
-          <section
-            data-testid="settings-section-backup-list"
+          <section id="settings-section-backup-list" data-testid="settings-section-backup-list"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">
@@ -887,8 +1409,7 @@ export default function SettingsPage(): React.ReactElement {
           </section>
 
           {/* ====== Section 5: 危险区 ====== */}
-          <section
-            data-testid="settings-section-danger"
+          <section id="settings-section-danger" data-testid="settings-section-danger"
             className="rounded-lg border-2 border-danger/60 bg-danger-soft/10 p-4"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-danger">
@@ -932,8 +1453,7 @@ export default function SettingsPage(): React.ReactElement {
           </footer>
 
           {/* ====== Section 6: 更新（T5-3 骨架 + v0.2.1 i18n 化） ====== */}
-          <section
-            data-testid="settings-section-updater"
+          <section id="settings-section-updater" data-testid="settings-section-updater"
             className="rounded-lg border border-line bg-base p-4 shadow-card"
           >
             <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-primary">

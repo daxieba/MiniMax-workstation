@@ -52,3 +52,14 @@ export const AppMetaValueSchema = z.object({
 export type DbStatusParsed = z.infer<typeof DbStatusSchema>;
 export type AppMetaSetInput = z.infer<typeof AppMetaSetInputSchema>;
 export type AppMetaValueParsed = z.infer<typeof AppMetaValueSchema>;
+
+/** v0.4.0: `app:getStorageInfo` 成功响应 data schema。 */
+export const StorageInfoSchema = z.object({
+  /** 数据库文件实际占盘大小（字节）。文件不存在时为 0。 */
+  dbSizeBytes: z.number().int().nonnegative(),
+  /** 数据库文件绝对路径。 */
+  dbPath: z.string().min(1),
+  /** Electron userData 目录绝对路径。 */
+  userDataDir: z.string().min(1),
+});
+export type StorageInfoParsed = z.infer<typeof StorageInfoSchema>;

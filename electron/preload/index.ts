@@ -7,6 +7,7 @@ import {
   AppMetaValueSchema,
   AppVersionSchema,
   DbStatusSchema,
+  StorageInfoSchema,
 } from '../../shared/schemas/db';
 import {
   MaybeAutoBackupResponseSchema,
@@ -113,6 +114,21 @@ import {
 } from '../../shared/schemas/review';
 import type { ReviewDraft } from '../../shared/types/review';
 import { NotifyInputSchema } from '../../shared/schemas/notification';
+import {
+  ArchiveHabitInputSchema,
+  CreateHabitInputSchema,
+  DeleteHabitInputSchema,
+  HabitListFilterSchema,
+  HabitListSchema,
+  HabitLogListSchema,
+  HabitSchema,
+  ListHabitLogsInputSchema,
+  LogsInRangeInputSchema,
+  ToggleHabitLogInputSchema,
+  UpdateHabitInputSchema,
+  type HabitParsed,
+  type HabitLogParsed,
+} from '../../shared/schemas/habit';
 import { SearchResultsSchema, type SearchResult } from '../../shared/schemas/search';
 import { SearchQuerySchema } from '../../shared/types/search';
 import {
@@ -383,6 +399,119 @@ const api = {
       const payload = NotifyInputSchema.parse(input);
       const DataSchema = z.object({ shown: z.boolean() });
       return invokeIpc('app:notify', payload, DataSchema);
+    },
+
+    /**
+     * v0.4.0: 读数据存储信息（db size / db path / userDataDir）。
+     * 给 Settings → 数据存储 section 用。
+     */
+    async getStorageInfo(): Promise<
+      | {
+          ok: true;
+          data: { dbSizeBytes: number; dbPath: string; userDataDir: string };
+        }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      return invokeIpc('app:getStorageInfo', {}, StorageInfoSchema);
+    },
+  },
+
+  /**
+   * 习惯（Habit）IPC 客户端（v0.4.0）。
+   *
+   * 暴露 8 个方法：
+   *   - `list(filter?)`        → `Habit[]`
+   *   - `create(input)`        → `Habit`
+   *   - `update({ id, patch })` → `Habit`
+   *   - `archive({ id, archived? })` → `Habit`
+   *   - `delete({ id })`       → `{ deleted: true }`
+   *   - `toggleLog({ habitId, date })` → `{ habitId, date, completed }`
+   *   - `listLogs({ habitId, fromDate?, toDate? })` → `HabitLog[]`
+   *   - `logsInRange({ fromDate, toDate })` → `HabitLog[]`
+   */
+  habit: {
+    async list(filter?: { archived?: boolean }): Promise<
+      | { ok: true; data: HabitParsed[] }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = HabitListFilterSchema.parse(filter ?? {});
+      return invokeIpc('habit:list', payload, HabitListSchema);
+    },
+    async create(input: {
+      name: string;
+      icon?: string;
+      color?: string | null;
+      weeklyTarget?: number;
+    }): Promise<
+      | { ok: true; data: HabitParsed }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = CreateHabitInputSchema.parse(input);
+      return invokeIpc('habit:create', payload, HabitSchema);
+    },
+    async update(input: {
+      id: string;
+      patch: {
+        name?: string;
+        icon?: string;
+        color?: string | null;
+        weeklyTarget?: number;
+        archived?: boolean;
+      };
+    }): Promise<
+      | { ok: true; data: HabitParsed }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = UpdateHabitInputSchema.parse(input);
+      return invokeIpc('habit:update', payload, HabitSchema);
+    },
+    async archive(input: {
+      id: string;
+      archived?: boolean;
+    }): Promise<
+      | { ok: true; data: HabitParsed }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = ArchiveHabitInputSchema.parse(input);
+      return invokeIpc('habit:archive', payload, HabitSchema);
+    },
+    async delete(input: { id: string }): Promise<
+      | { ok: true; data: { deleted: true } }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = DeleteHabitInputSchema.parse(input);
+      const DataSchema = z.object({ deleted: z.literal(true) });
+      return invokeIpc('habit:delete', payload, DataSchema);
+    },
+    async toggleLog(input: { habitId: string; date: string }): Promise<
+      | { ok: true; data: { habitId: string; date: string; completed: boolean } }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = ToggleHabitLogInputSchema.parse(input);
+      const DataSchema = z.object({
+        habitId: z.string(),
+        date: z.string(),
+        completed: z.boolean(),
+      });
+      return invokeIpc('habit:toggleLog', payload, DataSchema);
+    },
+    async listLogs(input: {
+      habitId: string;
+      fromDate?: string;
+      toDate?: string;
+    }): Promise<
+      | { ok: true; data: HabitLogParsed[] }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = ListHabitLogsInputSchema.parse(input);
+      return invokeIpc('habit:listLogs', payload, HabitLogListSchema);
+    },
+    async logsInRange(input: { fromDate: string; toDate: string }): Promise<
+      | { ok: true; data: HabitLogParsed[] }
+      | { ok: false; error: { code: string; message: string } }
+    > {
+      const payload = LogsInRangeInputSchema.parse(input);
+      return invokeIpc('habit:logsInRange', payload, HabitLogListSchema);
     },
   },
 

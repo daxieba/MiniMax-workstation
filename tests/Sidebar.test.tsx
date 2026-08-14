@@ -32,6 +32,7 @@ function renderApp(initialPath = '/'): void {
             <Route path="/review" element={<div>Review</div>} />
             <Route path="/calendar" element={<div>Calendar</div>} />
             <Route path="/pomodoro" element={<div>Pomodoro</div>} />
+            <Route path="/habits" element={<div>Habits</div>} />
             <Route path="/stats" element={<div>Stats</div>} />
             <Route path="/bookmarks" element={<div>Bookmarks</div>} />
             <Route path="/settings" element={<div>Settings</div>} />
@@ -43,11 +44,11 @@ function renderApp(initialPath = '/'): void {
 }
 
 describe('Sidebar', () => {
-  it('renders 11 navigation items with correct labels (v0.1.3: +calendar/pomodoro/stats/bookmarks)', () => {
+  it('renders 12 navigation items with correct labels (v0.4.0: +habits)', () => {
     renderApp();
     const sidebar = screen.getByTestId('sidebar');
     const items = within(sidebar).getAllByRole('link');
-    expect(items).toHaveLength(11);
+    expect(items).toHaveLength(12);
     const labels = items.map((a) => a.textContent);
     expect(labels).toEqual([
       '总览',
@@ -58,6 +59,7 @@ describe('Sidebar', () => {
       'AI 工作区',
       '日历',
       '番茄钟',
+      '习惯',
       '统计',
       '书签',
       '设置',

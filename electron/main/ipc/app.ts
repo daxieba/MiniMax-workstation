@@ -25,6 +25,7 @@
 
 import { eq } from 'drizzle-orm';
 import { ipcMain, type IpcMainInvokeEvent, Notification, shell } from 'electron';
+import { stat } from 'node:fs/promises';
 
 import { appMeta } from '../../../db/schema';
 import { type WorkstationDb } from '../../../db/client';
@@ -34,9 +35,11 @@ import {
   AppMetaValueSchema,
   AppVersionSchema,
   DbStatusSchema,
+  StorageInfoSchema,
   type AppMetaSetInput,
   type AppMetaValueParsed,
   type DbStatusParsed,
+  type StorageInfoParsed,
 } from '../../../shared/schemas/db';
 import { NotifyInputSchema } from '../../../shared/schemas/notification';
 
@@ -52,6 +55,8 @@ export interface AppIpcDeps {
   dbStatus: AppDbStatus;
   /** 应用版本号（来自 package.json，固化在主进程）。 */
   appVersion: string;
+  /** v0.4.0: Electron userData 目录绝对路径（用于 storage info 展示）。 */
+  userDataDir: string;
 }
 
 /** IPC 错误统一格式（PROJECT_IDENTITY.md §4.2）。 */
@@ -216,5 +221,29 @@ export function registerAppIpc(deps: AppIpcDeps): void {
     }
     n.show();
     return { shown: true };
+  });
+
+  // 6. v0.4.0: app:getStorageInfo —— 读 db 文件大小 + 路径
+  safeHandle('app:getStorageInfo', () => handleAppGetStorageInfo(deps));
+}
+
+/**
+ * `app:getStorageInfo` handler（独立 export 供 IPC smoke 直接调）。
+ *
+ * 读 db 文件大小 + db 路径 + userData 目录。
+ * 文件不存在时 dbSizeBytes = 0（不抛错）。
+ */
+export async function handleAppGetStorageInfo(deps: AppIpcDeps): Promise<StorageInfoParsed> {
+  let dbSizeBytes = 0;
+  try {
+    const s = await stat(deps.dbStatus.path);
+    dbSizeBytes = s.size;
+  } catch {
+    // 文件不存在（极少见）→ 0
+  }
+  return StorageInfoSchema.parse({
+    dbSizeBytes,
+    dbPath: deps.dbStatus.path,
+    userDataDir: deps.userDataDir,
   });
 }

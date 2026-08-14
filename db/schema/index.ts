@@ -39,6 +39,14 @@ export {
   type ReviewDraftRow,
   type ReviewItemRow,
 } from './review';
+export {
+  habits,
+  habitLogs,
+  type HabitRow,
+  type HabitInsert,
+  type HabitLogRow,
+  type HabitLogInsert,
+} from './habit';
 
 /**
  * FTS5 全文搜索虚拟表引用（T4-2）。

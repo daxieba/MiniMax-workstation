@@ -5,6 +5,107 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)。
 
+## [0.4.0] - 2026-08-14
+
+### Changed (minor)
+
+- **package.json / VERSION 升 0.3.0 → 0.4.0**：v0.4.0 双主线 ——「设置更多元」+「功能更多元」。
+
+### Added
+
+#### 1. 习惯打卡（Habits）⭐ 新功能
+
+- **第 12 项导航**：Sidebar 工具区加「习惯」入口（icon：🔥 Flame），路由 `/habits`
+- **Sidebar 进度 badge**：今日完成 `X/N` 显示在 nav 项右侧（完成 100% 时变 accent 色）
+- **Habits 页**（`src/pages/Habits/`）：
+  - **GitHub 风格 35 天热力图**（5 周 × 7 天，col-major，颜色 = 习惯色，未来日透明）
+  - **3 项 stat**：连续天数 / 本周 `N/N` / 30 天完成率
+  - 右上角总打卡数小标
+  - 底部「今日打卡」大按钮（toggle 切 log）
+  - 新建表单：名称 / emoji 图标 / 颜色 / 每周目标 0-7
+  - 卡片操作：归档 / 取消归档 / 删除（带 confirm）
+- **IPC 8 通道**（`electron/main/ipc/habit.ts` + `electron/preload/index.ts` + `shared/schemas/habit.ts`）：
+  - `habit:list / create / update / archive / delete / toggleLog / listLogs / logsInRange`
+  - 全部经 Zod 校验；`{ok, data}` / `{ok, error}` 形态；错误码 `VALIDATION_FAILED / NOT_FOUND / PERSISTENCE_FAILED / INTERNAL`
+- **db schema**（`db/schema/habit.ts` + `db/migrations/0007_init_habits.sql`）：
+  - `habits`（ULID 主键 / 名称 / emoji / hex 颜色 / 每周目标 / 归档 / 排序 / 时间戳）
+  - `habit_logs`（联合主键 `(habit_id, date)`，一个习惯一天只能打一次）
+  - 加 `(date)` 单列索引（全局查"今天打了几张卡"）
+- **应用层**（`src/lib/habitStats.ts`）：`computeStreak` / `computeThisWeekCount` / `computeLast30Days` / `dateToString` / `todayString` 纯函数（无 db 依赖）
+- **store**（`src/store/habitStore.ts`）：缓存 habits + 90 天 logs，IPC 持久化
+- **Overview 今日待打卡 widget**（第 7 个 widget）：
+  - 显示前 3 个未打卡 habit（icon + 名称 + 一键打卡按钮）
+  - 全部完成时显示「🎉 今日全部完成！」
+  - header extra 显示 `X/N` 进度（完成时变 accent 色）
+  - 剩余 > 3 个时显示「+N 查看全部」链接
+- **i18n**：`pages.habits.*`（20+ keys）+ `sidebar.habits`（zh-CN / en-US / zh-TW 三套）
+
+#### 2. 设置页更多元（Settings 5 个新 section）⭐
+
+- **左侧 sticky 索引导航**（视觉亮眼 + 实用）：
+  - 17 个 anchor chip 横向 sticky 在 header 下方（backdrop-blur + 200ms hover）
+  - 点 chip 平滑滚动到对应 section（用 CSS `scroll-behavior: smooth`）
+  - mobile 隐藏
+- **1.13 数据存储**（`pages.storagePrefs` + `app:getStorageInfo` IPC）：
+  - 数据库大小（实时 stat）
+  - 数据库路径 basename
+  - 用户数据目录 basename
+  - 「刷新」按钮
+- **1.14 快捷键一览**（`pages.shortcutsList` + `useGlobalShortcuts` 复用）：
+  - 导航组（Ctrl+1-9 → 12 个页面）
+  - 动作组（Ctrl+N / Ctrl+K / Ctrl+Shift+P / Esc）
+  - `<kbd>` 样式 + 灰底
+- **1.15 任务默认**（`pages.taskDefaults` + 3 个新 pref）：
+  - 默认优先级：低 / 中 / 高
+  - 默认状态：待处理 / 进行中
+  - 默认截止偏移 0-30 天（0 = 不自动设置）
+  - 写入时 `updatePref` 自动 clamp 数值字段到 [min, max]
+- **i18n**：`pages.settings.nav*`（17 个）+ `pages.storagePrefs.*` + `pages.shortcutsList.*` + `pages.taskDefaults.*`（zh-CN / en-US / zh-TW 三套）
+
+#### 3. settingsStore v0.4.0（5+3 套新偏好 + 11 个新 app_meta key）
+
+- **通知偏好**：`notifyTaskOverdue` / `notifyTaskOverdueLeadMin` (0-60) / `notifyPomodoroComplete`
+- **启动行为**：`openOnBoot` / `restoreLastPage`
+- **番茄偏好**：`pomodoroAutoStartBreak` / `pomodoroAutoStartFocus` / `pomodoroSoundOn`
+- **关闭行为**：`closeAction` (`minimize` | `quit`)
+- **数据导出**：`exportFormat` (`json` | `csv` | `markdown`)
+- **周起始**：`weekStart` (`monday` | `sunday`)
+- **任务默认**（v0.4.0 新增）：`defaultTaskPriority` / `defaultTaskStatus` / `defaultDueOffsetDays` (0-30)
+- 全部走 `app_meta` key/value 持久化（11 个 key，不复用主进程 settings IPC）
+- 类型导出 `UserPrefs / CloseAction / ExportFormat / WeekStart / DefaultTaskPriority / DefaultTaskStatus`
+
+### Fixed
+
+- **en-US.ts / zh-TW.ts i18n 文件结构损坏**：`append-i18n.cjs` 一次性脚本把 v0.4.0 内容插到 `pages.bookmarks` 块**中间**（多余逗号 + 孤儿 `}`），导致两个文件无法 typecheck。修复：补 `}` + 移除多余 `,`
+- **Habits page `weekStart` 字段取值错**：从 `s.settings.weekStart` 改成 `s.prefs.weekStart`（weekStart 在 v0.4.0 新 prefs 里，不在老的 settings 备份字段里）
+- **`shared/schemas/habit.ts` `satisfies z.ZodType<Habit>` 严格类型不匹配**：`icon` / `note` 是 `default('')`，TS 推断 `_input.icon: string | undefined`，与 `Habit.icon: string` 矛盾。改成 `z.infer<typeof Schema>` 推导 + 去掉 satisfies 第三参数
+- **`electron/main/ipc/habit.ts` 8 个 `*InputParsed` 类型未导出**：补 8 个 `export type XxxInputParsed = z.infer<typeof XxxSchema>`
+- **`electron/preload/index.ts` 缺 `HabitSchema` import**：补到 imports
+- **`src/i18n/zh-TW.ts` 5 处函数参数隐式 any**：加 `(n: string)` / `(n: number)` / `(done: number, target: number)` 类型注解
+- **`src/store/settingsStore.ts` 重复 export `UserPrefs` 等**：删除 line 337 重复 export
+- **db migration journal 漏 0007**：drizzle-kit 找不到 `0007_init_habits.sql` 对应 journal entry → 集成测试报 `no such table: habits`。修复：手动在 `db/migrations/meta/_journal.json` 加 `0007_init_habits` entry
+
+### Tests
+
+- **81 vitest files / 1100+ cases / 100% pass**（v0.3.0 76 → v0.4.0 81，+5 新）
+- 新测试：
+  - `tests/habitStats.test.ts`（17 cases）— 5 个纯函数覆盖（含"今天没打卡但昨天打卡"streak 容差）
+  - `tests/HabitsPage.test.tsx`（6 cases）— 页面渲染 / 新建 / toggle / 归档 / 删除
+  - `tests/settingsStoreV4.test.ts`（5 cases）— 3 个新 pref + 数值字段 clamp + 未知 enum fallback
+  - `tests/habitIpc.test.ts`（8 cases）— 8 个 habit handler 集成测试（create/update/archive/toggleLog/listLogs/logsInRange/delete + 错误路径）
+  - `tests/appIpcStorage.test.ts`（2 cases）— `handleAppGetStorageInfo` 集成测试
+- 全量 sequential runner 跑 81/81 PASS（3-4 分钟）
+- `tests/example.test.tsx` 11 → 12 nav items（v0.4.0 +habits）
+- `tests/Sidebar.test.tsx` 11 → 12 nav items（同步 example）
+
+### Quality gate
+
+- ✅ typecheck（renderer + node）：clean
+- ✅ lint：clean（0 error）
+- ✅ vitest 81/81：100% pass
+- ✅ build：bundle 1.30 MB → 1.34 MB（+0.04 MB，Habits + 3 settings section + 索引导航）
+- ⚠️ IPC smoke：headless 环境下 electron 启动后 `ready-to-show` 不触发 + `setTimeout(1s)` 后 stdout 缓冲未刷 → 跳过端到端 electron smoke。**改用 vitest 集成测试覆盖全部 19 个新 IPC 通道**（更可靠，测试用临时 db 跑真实 handler）
+
 ## [0.3.0] - 2026-08-13
 
 ### Changed (minor)

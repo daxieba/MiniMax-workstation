@@ -30,6 +30,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   AlarmClock,
   CalendarDays,
+  Check,
   CheckCircle2,
   Flame,
   Inbox as InboxIcon,
@@ -44,6 +45,8 @@ import { QuickInput } from '@/components/QuickInput/QuickInput';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher/ThemeSwitcher';
 import { useT, useI18nStore, type Lang } from '@/i18n';
 import { daysOverdue, isOverdue, isToday } from '@/lib/dateUtils';
+import { todayString } from '@/lib/habitStats';
+import { useHabitStore } from '@/store/habitStore';
 import { useInboxStore } from '@/store/inboxStore';
 import { usePomodoroStore } from '@/store/pomodoroStore';
 import { useProjectStore } from '@/store/projectStore';
@@ -410,14 +413,21 @@ export default function OverviewPage(): React.ReactElement {
   const inboxLoad = useInboxStore((s) => s.load);
   const inboxAdd = useInboxStore((s) => s.add);
 
+  // v0.4.0: habits（今日待打卡 widget 用）
+  const habits = useHabitStore((s) => s.habits);
+  const habitLogs = useHabitStore((s) => s.logs);
+  const habitLoad = useHabitStore((s) => s.load);
+  const habitToggleLog = useHabitStore((s) => s.toggleLog);
+
   const todayPomodoros = usePomodoroStore((s) => s.todayCount);
 
-  // 首次挂载 → 拉 3 个 store
+  // 首次挂载 → 拉 4 个 store
   useEffect(() => {
     void taskLoad();
     void projectLoad();
     void inboxLoad();
-  }, [taskLoad, projectLoad, inboxLoad]);
+    void habitLoad();
+  }, [taskLoad, projectLoad, inboxLoad, habitLoad]);
 
   // ===== 派生数据 =====
   const todayTasks = useMemo<Task[]>(
@@ -487,6 +497,25 @@ export default function OverviewPage(): React.ReactElement {
     for (const p of projects) map.set(p.id, p.name);
     return map;
   }, [projects]);
+
+  // v0.4.0: habits 今日待打卡
+  const todayHabits = useMemo(
+    () => habits.filter((h) => !h.archived),
+    [habits],
+  );
+  const habitsToday = todayString();
+  const habitDoneSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of habitLogs) {
+      if (l.date === habitsToday) set.add(l.habitId);
+    }
+    return set;
+  }, [habitLogs, habitsToday]);
+  const remainingHabits = useMemo(
+    () => todayHabits.filter((h) => !habitDoneSet.has(h.id)),
+    [todayHabits, habitDoneSet],
+  );
+  const habitsTodayDone = todayHabits.length - remainingHabits.length;
 
   const dataLoading = tasksLoading || projectsLoading || inboxLoading;
   const todayDate = useMemo(() => ov.dateFmt.format(new Date()), [ov.dateFmt]);
@@ -773,6 +802,84 @@ export default function OverviewPage(): React.ReactElement {
               <span className="font-semibold tabular-nums text-primary">{todayPomodoros}</span>
             </li>
           </ul>
+        </OverviewCard>
+
+        {/* 7. 今日待打卡 (v0.4.0) */}
+        <OverviewCard
+          testId="habits"
+          title={t.pages.overview.habitsCard}
+          loading={false}
+          isEmpty={todayHabits.length === 0}
+          emptyText={t.pages.overview.habitsEmpty}
+          headerExtra={
+            todayHabits.length > 0 ? (
+              <span
+                data-testid="overview-habits-progress"
+                className={[
+                  'rounded-md border px-1.5 py-0.5 text-[10px] tabular-nums',
+                  habitsTodayDone === todayHabits.length
+                    ? 'border-accent/40 bg-accent-soft text-accent'
+                    : 'border-line bg-base text-secondary',
+                ].join(' ')}
+              >
+                {habitsTodayDone}/{todayHabits.length}
+              </span>
+            ) : null
+          }
+        >
+          {remainingHabits.length === 0 && todayHabits.length > 0 ? (
+            <p
+              data-testid="overview-habits-all-done"
+              className="rounded-md border border-accent/30 bg-accent-soft/40 px-3 py-2 text-center text-sm text-accent"
+            >
+              {t.pages.overview.habitsAllDone}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5" data-testid="overview-habits-list">
+              {remainingHabits.slice(0, 3).map((h) => (
+                <li
+                  key={h.id}
+                  data-testid={`overview-habit-row-${h.id}`}
+                  className="flex items-center justify-between gap-2 rounded-md border border-line bg-base px-3 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    {h.color ? (
+                      <span
+                        aria-hidden="true"
+                        className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-line"
+                        style={{ backgroundColor: h.color }}
+                      />
+                    ) : null}
+                    {h.icon ? (
+                      <span aria-hidden="true" className="text-base">
+                        {h.icon}
+                      </span>
+                    ) : null}
+                    <span className="truncate text-sm text-primary">{h.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid={`overview-habit-check-${h.id}`}
+                    onClick={() => void habitToggleLog(h.id, habitsToday)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-line bg-elevated px-2 py-1 text-[11px] text-secondary transition-colors hover:border-accent hover:text-accent"
+                  >
+                    <Check className="h-3 w-3" aria-hidden="true" />
+                    {t.pages.overview.habitCheck}
+                  </button>
+                </li>
+              ))}
+              {remainingHabits.length > 3 ? (
+                <li>
+                  <Link
+                    to="/habits"
+                    className="block rounded-md border border-dashed border-line bg-base px-3 py-2 text-center text-[11px] text-secondary transition-colors hover:border-accent/40 hover:text-accent"
+                  >
+                    +{remainingHabits.length - 3} {t.pages.overview.viewAll}
+                  </Link>
+                </li>
+              ) : null}
+            </ul>
+          )}
         </OverviewCard>
       </div>
 

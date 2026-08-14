@@ -10,6 +10,8 @@ export interface SidebarItemConfig {
   description?: string;
   /** 图标。 */
   icon: LucideIcon;
+  /** v0.4.0: 右侧进度小标（如「2/3」表示今日完成 2/3 个 habit）。 */
+  badge?: { done: number; total: number } | undefined;
 }
 
 interface SidebarItemProps {
@@ -19,6 +21,7 @@ interface SidebarItemProps {
   label?: string;
   description?: string;
   icon?: LucideIcon;
+  badge?: { done: number; total: number } | undefined;
 }
 
 /**
@@ -30,6 +33,7 @@ export function SidebarItem(props: SidebarItemProps): React.ReactElement {
   const label = props.item?.label ?? props.label ?? '';
   const description = props.item?.description ?? props.description;
   const Icon = (props.item?.icon ?? props.icon) as LucideIcon;
+  const badge = props.item?.badge ?? props.badge;
   return (
     <NavLink
       to={to}
@@ -47,6 +51,19 @@ export function SidebarItem(props: SidebarItemProps): React.ReactElement {
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span className="truncate">{label}</span>
+      {badge ? (
+        <span
+          data-testid={`nav-badge-${to.replace(/\W+/g, '_') || 'root'}`}
+          className={[
+            'ml-auto inline-flex shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums',
+            badge.done === badge.total && badge.total > 0
+              ? 'bg-accent text-inverse'
+              : 'bg-elevated text-secondary',
+          ].join(' ')}
+        >
+          {badge.done}/{badge.total}
+        </span>
+      ) : null}
     </NavLink>
   );
 }

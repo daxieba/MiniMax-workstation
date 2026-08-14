@@ -8,6 +8,7 @@ import { registerAppIpc, type AppDbStatus } from './ipc/app';
 import { registerAppSettingsIpc } from './ipc/appSettings';
 import { registerBackupIpc } from './ipc/backup';
 import { registerDialogIpc } from './ipc/dialog';
+import { registerHabitIpc } from './ipc/habit';
 import { registerInboxIpc } from './ipc/inbox';
 import { registerNoteIpc } from './ipc/note';
 import { registerProjectIpc } from './ipc/project';
@@ -262,6 +263,7 @@ app.whenReady().then(() => {
     db: dbClient,
     dbStatus,
     appVersion: app.getVersion(),
+    userDataDir: app.getPath('userData'),
   });
   registerInboxIpc({ db: dbClient });
   registerProjectIpc({ db: dbClient });
@@ -282,6 +284,9 @@ app.whenReady().then(() => {
     db: dbClient,
     credentialManager,
   });
+
+  // v0.4.0: 习惯打卡 (Habits) IPC
+  registerHabitIpc({ db: dbClient });
 
   // T5-2：注册 dialog / 备份 / 设置 IPC
   registerDialogIpc({
@@ -311,12 +316,10 @@ app.whenReady().then(() => {
 
   // 调试：MINIMAX_AUTO_TEST=1 时，渲染端 ready-to-show 后跑一组 IPC 验证
   if (process.env['MINIMAX_AUTO_TEST'] === '1') {
-    const mainWindow = BrowserWindow.getAllWindows()[0];
-    if (mainWindow) {
-      mainWindow.once('ready-to-show', () => {
-        runAutoTest();
-      });
-    }
+    // v0.4.0: 加 1s 兜底 — 某些 sandbox / headless 环境 BrowserWindow 不触发 ready-to-show
+    setTimeout(() => {
+      void runAutoTest();
+    }, 1000);
   }
 
   // T3-3：webContents 销毁时清理 ai chat 控制器（避免悬挂 AbortController）

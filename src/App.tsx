@@ -20,6 +20,7 @@ import CalendarPage from '@/pages/Calendar';
 import PomodoroPage from '@/pages/Pomodoro';
 import StatsPage from '@/pages/Stats';
 import BookmarksPage from '@/pages/Bookmarks';
+import HabitsPage from '@/pages/Habits';
 
 /**
  * 应用根组件。
@@ -84,6 +85,7 @@ export default function App(): React.ReactElement {
             <Route path="/pomodoro" element={<PomodoroPage />} />
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/bookmarks" element={<BookmarksPage />} />
+            <Route path="/habits" element={<HabitsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

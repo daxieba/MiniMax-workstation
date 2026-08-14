@@ -9,16 +9,21 @@
  * v0.1.2 i18n：导航项的 label / description 从 i18n 资源派生。
  * `Icon` 保持静态（图标不参与语言切换）。
  */
-import { Bot, Bookmark, CalendarDays, ClipboardList, Inbox, LayoutDashboard, Library, Repeat, Settings, Timer, BarChart3 } from 'lucide-react';
+import { useMemo } from 'react';
+import { Bot, Bookmark, CalendarDays, ClipboardList, Flame, Inbox, LayoutDashboard, Library, Repeat, Settings, Timer, BarChart3 } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 import { ThemeToggle } from '@/components/ThemeToggle/ThemeToggle';
 import { useT } from '@/i18n';
+import { useHabitStore } from '@/store/habitStore';
+import { todayString } from '@/lib/habitStats';
 
 interface NavItem {
   to: string;
   label: string;
   description: string;
   icon: typeof Inbox;
+  /** v0.4.0: 右侧 badge（如 habits 今日 X/N）。 */
+  badge?: { done: number; total: number } | undefined;
 }
 
 /**
@@ -26,6 +31,19 @@ interface NavItem {
  */
 export function Sidebar(): React.ReactElement {
   const t = useT();
+
+  // v0.4.0: Habits 今日打卡进度（done/total）显示在 sidebar 项右侧
+  const habits = useHabitStore((s) => s.habits);
+  const habitLogs = useHabitStore((s) => s.logs);
+  const habitBadge = useMemo(() => {
+    const total = habits.filter((h) => !h.archived).length;
+    if (total === 0) return undefined;
+    const today = todayString();
+    const done = habits.filter(
+      (h) => !h.archived && habitLogs.some((l) => l.habitId === h.id && l.date === today),
+    ).length;
+    return { done, total };
+  }, [habits, habitLogs]);
 
   const mainNav: ReadonlyArray<NavItem> = [
     { to: '/', label: t.sidebar.overview, description: t.pages.overview.subtitle, icon: LayoutDashboard },
@@ -39,6 +57,7 @@ export function Sidebar(): React.ReactElement {
   const toolNav: ReadonlyArray<NavItem> = [
     { to: '/calendar', label: t.sidebar.calendar, description: t.pages.calendar.subtitle, icon: CalendarDays },
     { to: '/pomodoro', label: t.sidebar.pomodoro, description: t.pages.pomodoro.subtitle, icon: Timer },
+    { to: '/habits', label: t.sidebar.habits, description: t.pages.habits.subtitle, icon: Flame, badge: habitBadge },
     { to: '/stats', label: t.sidebar.stats, description: t.pages.stats.subtitle, icon: BarChart3 },
     { to: '/bookmarks', label: t.sidebar.bookmarks, description: t.pages.bookmarks.subtitle, icon: Bookmark },
   ];
@@ -86,6 +105,7 @@ function NavGroup({ title, items }: NavGroupProps): React.ReactElement {
           label={item.label}
           description={item.description}
           icon={item.icon}
+          badge={item.badge}
         />
       ))}
     </div>
