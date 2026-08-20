@@ -46,7 +46,9 @@ describe('App', () => {
         <App />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '总览' })).toBeInTheDocument();
+    // v0.3.0 重做后 Overview h1 是「早上好 / 中午好 / ... + 今日日期」，
+    // 不再是「总览」字面量。改用 data-testid 断言「Overview 真的渲染了」。
+    expect(screen.getByTestId('overview-hero')).toBeInTheDocument();
   });
 
   it('inbox page renders when path is /inbox', () => {
@@ -64,6 +66,6 @@ describe('App', () => {
         <App />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('heading', { name: '总览' })).toBeInTheDocument();
+    expect(screen.getByTestId('overview-hero')).toBeInTheDocument();
   });
 });
